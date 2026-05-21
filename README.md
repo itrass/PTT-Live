@@ -35,8 +35,6 @@ Option 3 : AES67 (RTP)       ┘   ├── 📱 Ingé son
 ### Modes de transmission
 ```
 PTT classique   → Maintenir pour parler
-PTT verrouillé  → Appui long (3s) pour lock/unlock
-                  Vibration + indicateur visuel rouge
 Mode continu    → Toggle ON/OFF (configurable par user)
 ```
 
