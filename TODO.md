@@ -74,48 +74,48 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ### 1.4 Client PWA React
 
 #### Infrastructure
-- [ ] client/vite.config.js (PWA plugin)
-- [ ] client/public/manifest.json
-- [ ] client/public/sw.js (Service Worker basique)
-- [ ] client/src/main.jsx (setup React)
+- [x] client/vite.config.js (PWA plugin)
+- [x] client/public/manifest.json (via Vite PWA)
+- [x] client/public/sw.js (Service Worker auto-généré)
+- [x] client/src/main.jsx (setup React)
 
 #### Composants UI
-- [ ] client/src/App.jsx
-  - [ ] Layout principal
-  - [ ] Connexion utilisateur (nom + groupe)
-  - [ ] Affichage état connexion
+- [x] client/src/App.jsx
+  - [x] Layout principal
+  - [x] Connexion utilisateur (nom + groupe)
+  - [x] Affichage état connexion
 
-- [ ] client/src/components/PTTButton.jsx
-  - [ ] Bouton PTT (maintenir pour parler)
-  - [ ] États : idle / talking / listening
-  - [ ] Feedback visuel (couleurs)
-  - [ ] Feedback haptique (vibration)
+- [x] client/src/components/PTTButton.jsx
+  - [x] Bouton PTT (maintenir pour parler)
+  - [x] États : idle / talking / listening
+  - [x] Feedback visuel (couleurs)
+  - [x] Feedback haptique (vibration)
 
-- [ ] client/src/components/UserList.jsx
-  - [ ] Liste participants groupe actif
-  - [ ] Indicateur qui parle (temps réel)
+- [x] client/src/components/UserList.jsx
+  - [x] Liste participants groupe actif
+  - [x] Indicateur qui parle (temps réel)
 
-- [ ] client/src/components/AudioIndicator.jsx
-  - [ ] Niveau audio entrant (VU-mètre simple)
-  - [ ] Niveau micro sortant
+- [x] client/src/components/AudioIndicator.jsx
+  - [x] Niveau audio entrant (VU-mètre simple)
+  - [x] Niveau micro sortant
 
 #### Hooks WebRTC
-- [ ] client/src/hooks/useLiveKit.js
-  - [ ] Connexion room (token serveur)
-  - [ ] Publish microphone
-  - [ ] Subscribe participants
-  - [ ] Gestion événements (participant join/leave)
-  - [ ] Cleanup disconnect
+- [x] client/src/hooks/useLiveKit.js
+  - [x] Connexion room (token serveur)
+  - [x] Publish microphone
+  - [x] Subscribe participants
+  - [x] Gestion événements (participant join/leave)
+  - [x] Cleanup disconnect
 
-- [ ] client/src/hooks/usePTT.js
-  - [ ] Mode PTT : enable/disable track selon bouton
-  - [ ] Gestion touch events (mobile)
-  - [ ] Gestion mouse events (desktop)
+- [x] PTT intégré dans PTTButton.jsx
+  - [x] Mode PTT : mute/unmute track selon bouton
+  - [x] Gestion touch events (mobile)
+  - [x] Gestion mouse events (desktop)
 
 #### Styles
-- [ ] CSS mobile-first
-- [ ] Design bouton PTT (large, accessible)
-- [ ] Mode sombre (défaut)
+- [x] CSS mobile-first
+- [x] Design bouton PTT (large, accessible)
+- [x] Mode sombre (défaut)
 
 ---
 

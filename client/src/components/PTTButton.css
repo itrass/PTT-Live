@@ -1,0 +1,144 @@
+/* PTTButton - Bouton principal Push-To-Talk */
+
+.ptt-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  gap: var(--spacing-lg);
+}
+
+.ptt-button {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: var(--color-ptt-idle);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.ptt-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.ptt-button:active::before {
+  opacity: 1;
+}
+
+.ptt-button:active {
+  transform: scale(0.95);
+}
+
+/* État: En train de parler */
+.ptt-button.talking {
+  background: var(--color-ptt-talking);
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.5),
+              0 0 60px rgba(239, 68, 68, 0.3);
+  animation: pulse-talking 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-talking {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* Icône micro */
+.ptt-icon {
+  width: 64px;
+  height: 64px;
+  color: white;
+}
+
+.ptt-icon svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Label */
+.ptt-label {
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  max-width: 180px;
+}
+
+/* Hint text */
+.ptt-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Responsive mobile */
+@media (max-width: 640px) {
+  .ptt-button {
+    width: 200px;
+    height: 200px;
+  }
+
+  .ptt-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .ptt-label {
+    font-size: 0.9rem;
+  }
+}
+
+/* Mode paysage */
+@media (max-height: 500px) and (orientation: landscape) {
+  .ptt-container {
+    padding: var(--spacing-md);
+  }
+
+  .ptt-button {
+    width: 160px;
+    height: 160px;
+  }
+
+  .ptt-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ptt-label {
+    font-size: 0.8rem;
+  }
+
+  .ptt-hint {
+    font-size: 0.8rem;
+  }
+}
+
+/* Accessibilité : désactiver effets réduits */
+@media (prefers-reduced-motion: reduce) {
+  .ptt-button,
+  .ptt-button.talking {
+    animation: none;
+    transition: none;
+  }
+}
