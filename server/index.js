@@ -20,7 +20,7 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || 'devkey';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'secret';
 const LIVEKIT_URL = process.env.LIVEKIT_URL || config.server.livekit.url;
 const USE_LOCAL_LIVEKIT = process.env.USE_LOCAL_LIVEKIT === 'true';
-const SERVER_PORT = config.server.port;
+const SERVER_PORT = parseInt(process.env.PORT || config.server.port, 10);
 const SERVER_HOST = config.server.host;
 
 // Logging
@@ -261,11 +261,22 @@ async function start() {
     }
 
     // 2. Démarrer API REST
-    app.listen(SERVER_PORT, SERVER_HOST, () => {
+    const server = app.listen(SERVER_PORT, SERVER_HOST, () => {
       log('info', `✓ API REST démarrée sur http://${SERVER_HOST}:${SERVER_PORT}`);
       log('info', '');
       log('info', 'Serveur prêt !');
       log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
+    });
+
+    // Gérer erreur port déjà utilisé
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        log('error', `❌ Port ${SERVER_PORT} déjà utilisé`);
+        log('info', `💡 Essayez avec: PORT=3001 npm run dev`);
+        process.exit(1);
+      } else {
+        throw error;
+      }
     });
 
   } catch (error) {
