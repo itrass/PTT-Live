@@ -14,12 +14,12 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ### 1.1 Infrastructure projet
 
-- [ ] Structure dossiers (server/, client/, install/)
-- [ ] package.json serveur (Node.js, Express, LiveKit SDK)
-- [ ] package.json client (React, Vite, livekit-client)
-- [ ] Script install/macos.sh (télécharge livekit-server binaire)
-- [ ] Config YAML basique (1 groupe, 2 canaux)
-- [ ] .gitignore (node_modules, binaires, .env)
+- [x] Structure dossiers (server/, client/, install/)
+- [x] package.json serveur (Node.js, Express, LiveKit SDK)
+- [x] package.json client (React, Vite, livekit-client)
+- [x] Script install/macos.sh (télécharge livekit-server binaire)
+- [x] Config YAML basique (1 groupe, 2 canaux)
+- [x] .gitignore (node_modules, binaires, .env)
 
 ---
 
