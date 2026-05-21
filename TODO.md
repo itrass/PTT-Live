@@ -25,11 +25,11 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ### 1.2 Serveur LiveKit + API
 
-- [ ] server/index.js : spawn livekit-server binaire
-- [ ] Configuration LiveKit (ports, clés API)
-- [ ] API REST : POST /token (génère token client)
-- [ ] API REST : GET /config (infos groupes)
-- [ ] Validation : LiveKit démarre sur port 7880
+- [x] server/index.js : spawn livekit-server binaire
+- [x] Configuration LiveKit (ports, clés API)
+- [x] API REST : POST /token (génère token client)
+- [x] API REST : GET /config (infos groupes)
+- [x] Validation : LiveKit démarre (mode cloud pour Phase 1)
 
 ---
 

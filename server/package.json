@@ -16,7 +16,6 @@
     "express": "^4.19.2",
     "livekit-server-sdk": "^2.6.0",
     "yaml": "^2.4.2",
-    "node-opus": "^0.3.3",
     "ws": "^8.17.0"
   },
   "devDependencies": {
