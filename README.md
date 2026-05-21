@@ -1,8 +1,104 @@
-# Résumé Projet - Intercom WebRTC Événementiel
+# PTT Live
 
-## Concept
+**Système d'intercom professionnel WebRTC pour techniciens événementiels**
 
-Système d'intercom professionnel pour techniciens événementiels. Les utilisateurs communiquent via leur smartphone (navigateur web / PWA) en WiFi. Le serveur fait le pont avec l'installation audio professionnelle existante.
+Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'installation audio professionnelle.
+
+---
+
+## 🚀 Démarrage rapide
+
+### Prérequis
+
+- Node.js 20+ ([télécharger](https://nodejs.org))
+- Compte LiveKit Cloud gratuit ([créer ici](https://cloud.livekit.io))
+
+### Installation (5 minutes)
+
+1. **Installer les dépendances**
+   ```bash
+   cd server && npm install
+   cd ../client && npm install
+   ```
+
+2. **Configurer LiveKit Cloud**
+
+   - Créer compte sur https://cloud.livekit.io
+   - Créer un projet
+   - Copier vos clés API
+
+   Créer `server/.env` :
+   ```bash
+   LIVEKIT_URL=wss://votre-projet.livekit.cloud
+   LIVEKIT_API_KEY=APIxxxxxxxxxx
+   LIVEKIT_API_SECRET=xxxxxxxxxxxxxxxxxx
+   USE_LOCAL_LIVEKIT=false
+   ```
+
+3. **Démarrer**
+
+   Terminal 1 :
+   ```bash
+   cd server && npm run dev
+   ```
+
+   Terminal 2 :
+   ```bash
+   cd client && npm run dev
+   ```
+
+4. **Tester** : http://localhost:5173
+
+   - Se connecter avec votre nom
+   - Ouvrir second onglet avec autre nom
+   - Maintenir bouton PTT pour parler !
+
+📖 **Guide complet** : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
+
+---
+
+## 📱 Utilisation
+
+- **Bouton PTT** : Maintenir pour parler, relâcher pour écouter
+- **Desktop** : Clic maintenu / **Mobile** : Appui tactile maintenu
+- **Feedback** : Vibration + couleur rouge quand vous parlez
+- **VU-mètre** : Visualisation niveau audio en temps réel
+
+---
+
+---
+
+## 🐛 Dépannage : "Connexion impossible"
+
+**Cause** : Clés LiveKit non configurées ou invalides.
+
+**Solution** :
+1. Vérifier que `server/.env` existe avec vos vraies clés LiveKit Cloud
+2. L'URL doit être en `wss://` (pas `ws://`)
+3. Redémarrer le serveur après modification
+4. Vérifier que le serveur tourne : `curl http://localhost:3000/health`
+
+Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
+
+---
+
+## 📚 Documentation
+
+- **[docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)** - Configuration LiveKit (Cloud + Local)
+- **[CLAUDE.md](CLAUDE.md)** - Documentation développement complète
+- **[TODO.md](TODO.md)** - Progression des phases
+
+---
+
+## 🎯 État du projet
+
+- ✅ **Phase 1.1** : Infrastructure
+- ✅ **Phase 1.2** : Serveur + API REST
+- ⏳ **Phase 1.3** : Bridge audio macOS
+- ✅ **Phase 1.4** : Client PWA React
+- ⏳ **Phase 1.5** : Tests validation
+
+**Version actuelle** : 0.1.0 (Phase 1 MVP en cours)
 
 ---
 
