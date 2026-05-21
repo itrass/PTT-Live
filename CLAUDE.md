@@ -306,7 +306,7 @@ test: description
 1. **Avant de coder** : Cocher la tâche en cours dans [TODO.md](TODO.md) (mettre `[x]`)
 2. **Après chaque tâche complétée** :
    - ✅ Valider la tâche dans [TODO.md](TODO.md)
-   - 🔄 Commiter avec message descriptif
+   - 🔄 Commiter avec message descriptif en français
    - 📝 Mettre à jour CLAUDE.md si nécessaire
 
 **Exemple workflow** :
