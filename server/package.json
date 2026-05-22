@@ -9,14 +9,21 @@
     "dev": "node --watch index.js",
     "test": "node --test"
   },
-  "keywords": ["webrtc", "intercom", "livekit", "audio", "ptt"],
+  "keywords": [
+    "webrtc",
+    "intercom",
+    "livekit",
+    "audio",
+    "ptt"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "livekit-server-sdk": "^2.6.0",
-    "yaml": "^2.4.2",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "yaml": "^2.4.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

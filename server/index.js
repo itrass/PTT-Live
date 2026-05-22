@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
 import express from 'express';
 import { spawn } from 'child_process';
 import { readFileSync } from 'fs';
@@ -43,25 +44,26 @@ let livekitProcess = null;
 
 function startLiveKitServer() {
   return new Promise((resolve, reject) => {
-    const livekitBinary = join(__dirname, 'bin', 'livekit-server');
+    // Utiliser le binaire Homebrew (dans PATH)
+    const livekitBinary = 'livekit-server';
 
     log('info', 'Démarrage LiveKit Server...');
-    log('debug', 'Binaire:', livekitBinary);
+    log('debug', 'Commande:', livekitBinary);
     log('debug', 'URL:', LIVEKIT_URL);
 
     // Configuration LiveKit en arguments
+    // En mode --dev, LiveKit utilise automatiquement devkey/secret
     const args = [
-      '--dev',  // Mode développement
-      '--bind', '0.0.0.0',
-      '--port', '7880',
-      '--rtc-port-range-start', '50000',
-      '--rtc-port-range-end', '60000',
-      '--keys', `${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}`
+      '--dev',  // Mode développement (active debug + clés par défaut devkey/secret)
+      '--bind', '0.0.0.0'
+      // Note: --udp-port peut être ajouté si besoin (ex: --udp-port 7882)
+      // Le port HTTP/WebSocket est 7880 par défaut
     ];
 
     livekitProcess = spawn(livekitBinary, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env }
+      env: { ...process.env },
+      shell: true  // Permet de trouver le binaire dans PATH
     });
 
     livekitProcess.stdout.on('data', (data) => {
