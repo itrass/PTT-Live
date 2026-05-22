@@ -36,38 +36,38 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ### 1.3 Bridge audio macOS
 
 #### Backend CoreAudio
-- [ ] server/bridge/backends/CoreAudioBackend.js
-  - [ ] Énumération devices (entrée/sortie)
-  - [ ] Capture audio (48kHz, mono/stereo)
-  - [ ] Lecture audio (48kHz)
-  - [ ] Gestion buffer circulaire
+- [x] server/bridge/backends/CoreAudioBackend.js
+  - [x] Énumération devices (entrée/sortie)
+  - [x] Capture audio (48kHz, mono/stereo)
+  - [x] Lecture audio (48kHz)
+  - [x] Gestion buffer circulaire
 
 #### Codec Opus
-- [ ] server/bridge/OpusCodec.js
-  - [ ] Encoder PCM → Opus (configurable 32-320kbps, 20ms frame)
-  - [ ] Decoder Opus → PCM
-  - [ ] Configuration bitrate (par groupe ou global)
+- [x] server/bridge/OpusCodec.js
+  - [x] Encoder PCM → Opus (configurable 32-320kbps, 20ms frame)
+  - [x] Decoder Opus → PCM
+  - [x] Configuration bitrate (par groupe ou global)
   - [ ] Tests unitaires codec (différentes qualités)
 
 #### Jitter Buffer
-- [ ] server/bridge/JitterBuffer.js
-  - [ ] Buffer FIFO 40ms cible
-  - [ ] Détection underrun/overrun
-  - [ ] Statistiques latence
+- [x] server/bridge/JitterBuffer.js
+  - [x] Buffer FIFO 40ms cible
+  - [x] Détection underrun/overrun
+  - [x] Statistiques latence
 
 #### Intégration LiveKit
-- [ ] server/bridge/LiveKitClient.js
-  - [ ] Connexion room en tant que participant
-  - [ ] Publish track audio (Opus)
-  - [ ] Subscribe tracks autres participants
-  - [ ] Gestion reconnexion
+- [x] server/bridge/LiveKitClient.js
+  - [x] Connexion room en tant que participant
+  - [x] Publish track audio (Opus)
+  - [x] Subscribe tracks autres participants
+  - [x] Gestion reconnexion
 
 #### Classe principale
-- [ ] server/bridge/AudioBridge.js
-  - [ ] Détection backend (CoreAudio pour macOS)
-  - [ ] Routing : CoreAudio → Opus → LiveKit
-  - [ ] Routing : LiveKit → Opus → CoreAudio
-  - [ ] Logs détaillés (latence, drops)
+- [x] server/bridge/AudioBridge.js
+  - [x] Détection backend (CoreAudio pour macOS)
+  - [x] Routing : CoreAudio → Opus → LiveKit
+  - [x] Routing : LiveKit → Opus → CoreAudio
+  - [x] Logs détaillés (latence, drops)
 
 ---
 
