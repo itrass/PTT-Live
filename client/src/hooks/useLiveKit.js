@@ -15,6 +15,7 @@ export default function useLiveKit() {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const isAudioUnlockedRef = useRef(false);
 
   /**
    * Connexion à la room LiveKit
@@ -37,6 +38,8 @@ export default function useLiveKit() {
       // Events
       room.on(RoomEvent.Connected, () => {
         console.log('✓ Connecté à LiveKit');
+        console.log('  Room name:', room.name);
+        console.log('  Participants distants:', room.remoteParticipants.size);
         setIsConnected(true);
       });
 
@@ -47,7 +50,8 @@ export default function useLiveKit() {
       });
 
       room.on(RoomEvent.ParticipantConnected, (participant) => {
-        console.log('Participant rejoint:', participant.identity);
+        console.log('🟢 Participant rejoint:', participant.identity);
+        console.log('  Total participants distants:', room.remoteParticipants.size);
         updateParticipants();
       });
 
@@ -77,19 +81,44 @@ export default function useLiveKit() {
         updateParticipants();
       });
 
+      // Event track local publié
+      room.on(RoomEvent.LocalTrackPublished, (publication) => {
+        console.log('✓ Track local publié:', publication.kind);
+        if (publication.kind === Track.Kind.Audio) {
+          const track = publication.track;
+          console.log('  Track audio disponible:', track);
+          console.log('  isMuted:', track.isMuted);
+          localTrackRef.current = track;
+          // Mute par défaut (PTT)
+          track.mute();
+          setupAudioAnalyser(track);
+          console.log('✓ Track audio configuré et muted pour PTT');
+        }
+      });
+
       // Connexion
       await room.connect(url, token);
 
+      console.log('📞 Connexion établie, activation microphone...');
+
       // Activer microphone (muted par défaut)
       await room.localParticipant.setMicrophoneEnabled(true);
-      const track = room.localParticipant.audioTracks.values().next().value?.track;
 
-      if (track) {
-        localTrackRef.current = track;
-        // Mute par défaut (PTT)
-        track.mute();
-        setupAudioAnalyser(track);
+      console.log('🎤 Microphone activé, attente publication track...');
+
+      // Attendre que le track soit publié (max 3s)
+      let retries = 0;
+      while (!localTrackRef.current && retries < 30) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
       }
+
+      if (!localTrackRef.current) {
+        console.error('❌ Timeout : track audio non publié après 3s');
+        throw new Error('Microphone non disponible. Autorisez l\'accès au micro dans les réglages iOS.');
+      }
+
+      console.log('✓ Track audio prêt');
 
       updateParticipants();
 
@@ -113,24 +142,64 @@ export default function useLiveKit() {
   }, []);
 
   /**
+   * Débloque l'audio sur mobile (iOS/Android)
+   * Doit être appelé dans un gestionnaire d'événement utilisateur
+   */
+  const unlockAudio = useCallback(() => {
+    if (isAudioUnlockedRef.current) return;
+
+    try {
+      // Créer un contexte audio silencieux pour débloquer l'API
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      gainNode.gain.value = 0; // Silence
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start(0);
+      oscillator.stop(0.001);
+
+      isAudioUnlockedRef.current = true;
+      console.log('✓ Audio débloqué (mobile)');
+    } catch (error) {
+      console.warn('Audio unlock échoué:', error);
+    }
+  }, []);
+
+  /**
    * Commencer à parler (unmute micro)
    */
   const startTalking = useCallback(async () => {
-    if (!localTrackRef.current) return;
+    console.log('🎤 startTalking appelé');
+    console.log('  localTrackRef.current:', localTrackRef.current);
+
+    if (!localTrackRef.current) {
+      console.warn('⚠️ Pas de track audio local disponible');
+      alert('Microphone non disponible. Réessayez.');
+      return;
+    }
 
     try {
-      await localTrackRef.current.unmute();
+      // Débloquer audio sur mobile au premier appui
+      unlockAudio();
+
+      // Feedback immédiat AVANT unmute
       setIsTalking(true);
-      console.log('🎤 PTT: Talking');
+
+      await localTrackRef.current.unmute();
+      console.log('🎤 PTT: Talking (unmuted)');
 
       // Vibration haptique (si supporté)
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
     } catch (error) {
-      console.error('Erreur unmute:', error);
+      console.error('❌ Erreur unmute:', error);
+      setIsTalking(false);
+      alert(`Erreur microphone: ${error.message}`);
     }
-  }, []);
+  }, [unlockAudio]);
 
   /**
    * Arrêter de parler (mute micro)
@@ -163,7 +232,8 @@ export default function useLiveKit() {
 
     // Participants distants
     room.remoteParticipants.forEach((participant) => {
-      const audioPublication = Array.from(participant.audioTracks.values())[0];
+      const audioTracks = participant.audioTracks ? Array.from(participant.audioTracks.values()) : [];
+      const audioPublication = audioTracks[0];
       const isSpeaking = room.activeSpeakers.some(s => s.identity === participant.identity);
 
       participantsList.push({

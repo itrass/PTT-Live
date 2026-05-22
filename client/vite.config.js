@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import fs from 'fs';
 
 export default defineConfig({
   plugins: [
@@ -57,11 +58,21 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    https: {
+      key: fs.readFileSync('./localhost+3-key.pem'),
+      cert: fs.readFileSync('./localhost+3.pem'),
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/livekit': {
+        target: 'ws://10.1.1.111:7880',
+        ws: true,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/livekit/, '')
       }
     }
   },

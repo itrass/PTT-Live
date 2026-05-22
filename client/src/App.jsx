@@ -56,6 +56,18 @@ function App() {
     setError(null);
 
     try {
+      // IMPORTANT iOS : Demander permission microphone AVANT tout
+      console.log('🎤 Demande permission microphone...');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        console.log('✓ Permission microphone accordée');
+        // Arrêter le stream test immédiatement
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permErr) {
+        console.error('❌ Permission microphone refusée:', permErr);
+        throw new Error('Accès microphone refusé. Autorisez dans les réglages iOS : Safari > Microphone.');
+      }
+
       // Obtenir token du serveur
       const response = await fetch(`${API_URL}/token`, {
         method: 'POST',
@@ -69,12 +81,27 @@ function App() {
 
       const data = await response.json();
 
+      // Adapter l'URL LiveKit selon le protocole de la page
+      let livekitUrl = data.url;
+      if (window.location.protocol === 'https:') {
+        // En HTTPS, utiliser le proxy WSS local via Vite
+        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
+      }
+
+      console.log('🔗 Connexion LiveKit:', livekitUrl);
+
       // Se connecter à LiveKit
-      await connect(data.url, data.token);
+      await connect(livekitUrl, data.token);
 
     } catch (err) {
       console.error('Erreur connexion:', err);
-      setError('Connexion impossible. Vérifiez le serveur.');
+
+      // Message d'erreur spécifique selon le type
+      if (err.message && err.message.includes('Microphone')) {
+        setError(err.message);
+      } else {
+        setError('Connexion impossible. Vérifiez le serveur et les permissions microphone.');
+      }
     } finally {
       setIsConnecting(false);
     }

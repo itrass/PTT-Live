@@ -21,6 +21,7 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
     // Touch events (mobile)
     const handleTouchStart = (e) => {
       e.preventDefault();
+      console.log('🖐️ Touch start');
       if (!isPressingRef.current) {
         isPressingRef.current = true;
         onPressStart();
@@ -29,6 +30,7 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
+      console.log('🖐️ Touch end');
       if (isPressingRef.current) {
         isPressingRef.current = false;
         onPressEnd();

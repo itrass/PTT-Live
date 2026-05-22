@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
-**Dernière mise à jour** : 2026-05-21
-**Phase actuelle** : PHASE 1 - Fondations
+**Dernière mise à jour** : 2026-05-22
+**Phase actuelle** : PHASE 1 - Fondations (Tests finaux en cours)
 
 ---
 
@@ -111,6 +111,7 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
   - [x] Mode PTT : mute/unmute track selon bouton
   - [x] Gestion touch events (mobile)
   - [x] Gestion mouse events (desktop)
+  - [x] **Fix iOS/mobile** : audio unlock, HTTPS obligatoire, proxy WSS LiveKit
 
 #### Styles
 - [x] CSS mobile-first
@@ -122,17 +123,17 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ### 1.5 Tests et validation Phase 1
 
 #### Tests unitaires
-- [ ] Opus encode/decode (qualité audio)
-- [ ] Jitter buffer (buffer size stable)
-- [ ] CoreAudio device detection
+- [x] Opus encode/decode (qualité audio)
+- [x] Jitter buffer (buffer size stable)
+- [ ] CoreAudio device detection (naudiodon crash - à résoudre plus tard)
 
 #### Tests d'intégration
-- [ ] Serveur démarre sans erreur
-- [ ] Client obtient token valide
-- [ ] Client rejoint room LiveKit
+- [x] Serveur démarre sans erreur
+- [x] Client obtient token valide
+- [x] Client rejoint room LiveKit
 
 #### Tests end-to-end
-- [ ] **Test 1** : 2 clients, PTT alterné, audio bidirectionnel
+- [x] **Test 1** : 2 clients, PTT alterné, audio bidirectionnel
 - [ ] **Test 2** : Mesure latence (clap → réception < 150ms)
 - [ ] **Test 3** : Stabilité 5min sans coupure
 - [ ] **Test 4** : Reconnexion après perte WiFi
