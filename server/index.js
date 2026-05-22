@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { networkInterfaces } from 'os';
 import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
 
@@ -16,13 +17,60 @@ const configPath = join(__dirname, 'config', 'config.yaml');
 const configFile = readFileSync(configPath, 'utf8');
 const config = YAML.parse(configFile);
 
+/**
+ * Détecte l'IP réseau locale (WiFi/Ethernet)
+ * @returns {string|null} IP réseau ou null si non trouvée
+ */
+function getNetworkIP() {
+  const nets = networkInterfaces();
+
+  // Priorité : WiFi (en0 sur macOS) > Ethernet (en1)
+  const priorityInterfaces = ['en0', 'en1', 'eth0', 'wlan0'];
+
+  for (const interfaceName of priorityInterfaces) {
+    const interfaces = nets[interfaceName];
+    if (interfaces) {
+      for (const net of interfaces) {
+        // IPv4, non-interne
+        if (net.family === 'IPv4' && !net.internal) {
+          return net.address;
+        }
+      }
+    }
+  }
+
+  // Fallback : première IP non-interne trouvée
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+
+  return null;
+}
+
 // Variables d'environnement
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || 'devkey';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'secret';
-const LIVEKIT_URL = process.env.LIVEKIT_URL || config.server.livekit.url;
 const USE_LOCAL_LIVEKIT = process.env.USE_LOCAL_LIVEKIT === 'true';
 const SERVER_PORT = parseInt(process.env.PORT || config.server.port, 10);
 const SERVER_HOST = config.server.host;
+
+// Configuration URL LiveKit
+let LIVEKIT_URL = process.env.LIVEKIT_URL || config.server.livekit.url;
+
+// AUTO : détection automatique de l'IP réseau
+if (LIVEKIT_URL === 'AUTO') {
+  const networkIP = getNetworkIP();
+  if (networkIP) {
+    LIVEKIT_URL = `ws://${networkIP}:7880`;
+  } else {
+    console.warn('⚠️  IP réseau non détectée, utilisation de localhost');
+    LIVEKIT_URL = 'ws://localhost:7880';
+  }
+}
 
 // Logging
 const LOG_LEVEL = config.logging.level;
@@ -251,6 +299,14 @@ async function start() {
   try {
     log('info', '=== PTT Live Server ===');
     log('info', 'Phase 1 - MVP');
+    log('info', '');
+
+    // Affichage configuration réseau
+    const networkIP = getNetworkIP();
+    if (networkIP) {
+      log('info', `📡 IP réseau détectée : ${networkIP}`);
+    }
+    log('info', `🔗 URL LiveKit clients : ${LIVEKIT_URL}`);
     log('info', '');
 
     // 1. Démarrer LiveKit (si mode local)
