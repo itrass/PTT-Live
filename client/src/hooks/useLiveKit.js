@@ -17,6 +17,11 @@ export default function useLiveKit() {
   const animationFrameRef = useRef(null);
   const isAudioUnlockedRef = useRef(false);
 
+  // Analyseur audio pour pistes distantes (audio entrant)
+  const remoteAudioContextRef = useRef(null);
+  const remoteAnalyserRef = useRef(null);
+  const remoteAnimationFrameRef = useRef(null);
+
   /**
    * Connexion à la room LiveKit
    */
@@ -68,6 +73,9 @@ export default function useLiveKit() {
         if (track.kind === Track.Kind.Audio) {
           const audioElement = track.attach();
           document.body.appendChild(audioElement);
+
+          // Setup analyseur pour audio entrant
+          setupRemoteAudioAnalyser(track);
         }
       });
 
@@ -92,6 +100,8 @@ export default function useLiveKit() {
           // Mute par défaut (PTT)
           track.mute();
           setupAudioAnalyser(track);
+          // Démarrer l'analyse audio
+          analyseAudioLevel();
           console.log('✓ Track audio configuré et muted pour PTT');
         }
       });
@@ -249,7 +259,7 @@ export default function useLiveKit() {
   };
 
   /**
-   * Setup analyseur audio pour VU-mètre
+   * Setup analyseur audio pour VU-mètre (micro local)
    */
   const setupAudioAnalyser = (track) => {
     try {
@@ -266,36 +276,63 @@ export default function useLiveKit() {
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
 
-      // Démarrer analyse
-      analyseAudioLevel();
+      console.log('✓ Analyseur audio local configuré');
     } catch (error) {
-      console.error('Erreur setup analyser:', error);
+      console.error('Erreur setup analyser local:', error);
+    }
+  };
+
+  /**
+   * Setup analyseur audio pour pistes distantes (audio entrant)
+   */
+  const setupRemoteAudioAnalyser = (track) => {
+    try {
+      const mediaStream = track.mediaStream;
+      if (!mediaStream) return;
+
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(mediaStream);
+
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      remoteAudioContextRef.current = audioContext;
+      remoteAnalyserRef.current = analyser;
+
+      console.log('✓ Analyseur audio distant configuré');
+    } catch (error) {
+      console.error('Erreur setup analyser distant:', error);
     }
   };
 
   /**
    * Analyser niveau audio (pour VU-mètre)
+   * Alterne entre micro local (si talking) et audio entrant (si listening)
    */
-  const analyseAudioLevel = () => {
-    if (!analyserRef.current) return;
-
-    const analyser = analyserRef.current;
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
+  const analyseAudioLevel = useCallback(() => {
     const analyse = () => {
-      analyser.getByteFrequencyData(dataArray);
+      // Choisir l'analyseur selon l'état
+      const analyser = isTalking ? analyserRef.current : remoteAnalyserRef.current;
 
-      // Calculer moyenne
-      const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-      const normalized = Math.min(100, (average / 255) * 100);
+      if (analyser) {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
 
-      setAudioLevel(normalized);
+        // Calculer moyenne
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const normalized = Math.min(100, (average / 255) * 100);
+
+        setAudioLevel(normalized);
+      } else {
+        setAudioLevel(0);
+      }
 
       animationFrameRef.current = requestAnimationFrame(analyse);
     };
 
     analyse();
-  };
+  }, [isTalking]);
 
   /**
    * Cleanup
@@ -306,14 +343,38 @@ export default function useLiveKit() {
       animationFrameRef.current = null;
     }
 
+    if (remoteAnimationFrameRef.current) {
+      cancelAnimationFrame(remoteAnimationFrameRef.current);
+      remoteAnimationFrameRef.current = null;
+    }
+
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
 
+    if (remoteAudioContextRef.current) {
+      remoteAudioContextRef.current.close();
+      remoteAudioContextRef.current = null;
+    }
+
     analyserRef.current = null;
+    remoteAnalyserRef.current = null;
     localTrackRef.current = null;
   };
+
+  // Redémarrer l'analyse audio quand isTalking change
+  useEffect(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // Redémarrer l'analyse si on a au moins un analyseur
+    if (analyserRef.current || remoteAnalyserRef.current) {
+      analyseAudioLevel();
+    }
+  }, [isTalking, analyseAudioLevel]);
 
   // Cleanup au démontage
   useEffect(() => {

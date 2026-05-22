@@ -56,16 +56,18 @@
 
 .audio-bar {
   flex: 1;
-  background: var(--color-bg);
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 2px;
   transition: all 0.1s ease;
-  min-height: 4px;
-  height: 20%;
 }
 
 .audio-bar.active {
-  height: 100%;
   background: var(--color-success);
+}
+
+.audio-bar.active.talking {
+  background: var(--color-primary);
 }
 
 .audio-bar.active.warning {

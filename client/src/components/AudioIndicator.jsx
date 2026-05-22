@@ -11,17 +11,9 @@ export default function AudioIndicator({ level, isTalking }) {
     <div className="audio-indicator-container">
       <div className="audio-indicator-label">
         <span>{isTalking ? 'Votre micro' : 'Audio entrant'}</span>
-        <span className="audio-level-value">{Math.round(normalizedLevel)}%</span>
       </div>
 
-      <div className="audio-indicator-bar">
-        <div
-          className={`audio-indicator-fill ${isTalking ? 'talking' : ''}`}
-          style={{ width: `${normalizedLevel}%` }}
-        />
-      </div>
-
-      {/* Bars VU-mètre style */}
+      {/* VU-mètre barres */}
       <div className="audio-bars">
         {[...Array(20)].map((_, i) => {
           const threshold = (i + 1) * 5;
@@ -34,7 +26,7 @@ export default function AudioIndicator({ level, isTalking }) {
               key={i}
               className={`audio-bar ${isActive ? 'active' : ''} ${
                 isActive && isDanger ? 'danger' : isActive && isWarning ? 'warning' : ''
-              }`}
+              } ${isTalking ? 'talking' : ''}`}
             />
           );
         })}
