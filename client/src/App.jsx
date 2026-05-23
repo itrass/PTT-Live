@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import useLiveKit from './hooks/useLiveKit';
 import PTTButton from './components/PTTButton';
 import UserList from './components/UserList';
-import AudioIndicator from './components/AudioIndicator';
 import GroupSelector from './components/GroupSelector';
 import './App.css';
 
@@ -241,14 +240,12 @@ function App() {
         {/* Liste des participants */}
         <UserList participants={participants} />
 
-        {/* Indicateur audio */}
-        <AudioIndicator level={audioLevel} isTalking={isTalking} />
-
-        {/* Bouton PTT principal */}
+        {/* Bouton PTT principal avec VU-mètre intégré */}
         <PTTButton
           isTalking={isTalking}
           onPressStart={startTalking}
           onPressEnd={stopTalking}
+          audioLevel={audioLevel}
         />
       </main>
     </div>

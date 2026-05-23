@@ -7,8 +7,9 @@ import './PTTButton.css';
  * Modes :
  * - PTT classique : maintenir pour parler
  * - Mode continu (lock) : glisser vers le haut pendant qu'on parle
+ * Inclut VU-mètre intégré (anneau autour du bouton)
  */
-export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
+export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLevel = 0 }) {
   const buttonRef = useRef(null);
   const isPressingRef = useRef(false);
   const [isLockMode, setIsLockMode] = useState(false);
@@ -241,6 +242,25 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
     }
   };
 
+  // Calculer le niveau audio normalisé (0-100)
+  const normalizedLevel = Math.min(100, Math.max(0, audioLevel));
+
+  // Convertir le niveau en angle pour le cercle SVG (0-360°)
+  const levelAngle = (normalizedLevel / 100) * 360;
+
+  // Calculer le dasharray pour l'arc SVG
+  const radius = 130; // Rayon du cercle VU-mètre
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (levelAngle / 360) * circumference;
+
+  // Déterminer la couleur selon le niveau
+  const getAudioColor = () => {
+    if (normalizedLevel > 90) return '#ef4444'; // Danger (rouge)
+    if (normalizedLevel > 75) return '#f59e0b'; // Warning (orange)
+    if (isTalking) return '#3b82f6'; // Talking (bleu)
+    return '#10b981'; // Normal (vert)
+  };
+
   return (
     <div className="ptt-container">
       {/* Zone de drag vers le haut (indicateur visuel) */}
@@ -253,15 +273,53 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
         </div>
       )}
 
-      {/* Bouton PTT principal */}
-      <button
-        ref={buttonRef}
-        className={`ptt-button ${isTalking ? 'talking' : ''} ${isLockMode ? 'locked' : ''}`}
-        type="button"
-        style={{
-          transform: dragOffset > 0 && !isLockMode ? `translateY(-${dragOffset * 0.3}px)` : 'none'
-        }}
-      >
+      {/* Conteneur bouton + VU-mètre */}
+      <div className="ptt-button-wrapper">
+        {/* VU-mètre circulaire (SVG) */}
+        <svg
+          className="audio-ring"
+          width="280"
+          height="280"
+          viewBox="0 0 280 280"
+        >
+          {/* Cercle de fond (gris) */}
+          <circle
+            cx="140"
+            cy="140"
+            r={radius}
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.1)"
+            strokeWidth="8"
+          />
+
+          {/* Cercle de niveau audio (coloré) */}
+          <circle
+            cx="140"
+            cy="140"
+            r={radius}
+            fill="none"
+            stroke={getAudioColor()}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            transform="rotate(-90 140 140)"
+            style={{
+              transition: 'stroke-dashoffset 0.1s ease, stroke 0.2s ease',
+              filter: normalizedLevel > 0 ? `drop-shadow(0 0 8px ${getAudioColor()})` : 'none'
+            }}
+          />
+        </svg>
+
+        {/* Bouton PTT principal */}
+        <button
+          ref={buttonRef}
+          className={`ptt-button ${isTalking ? 'talking' : ''} ${isLockMode ? 'locked' : ''}`}
+          type="button"
+          style={{
+            transform: dragOffset > 0 && !isLockMode ? `translateY(-${dragOffset * 0.3}px)` : 'none'
+          }}
+        >
 
         <div className="ptt-icon">
           {isTalking ? (
@@ -295,6 +353,7 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
               : 'Maintenir pour parler'}
         </span>
       </button>
+      </div>
 
       <p className="ptt-hint">
         {isLockMode

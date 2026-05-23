@@ -11,6 +11,24 @@
   position: relative;
 }
 
+/* Wrapper bouton + anneau VU-mètre */
+.ptt-button-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Anneau VU-mètre (SVG) */
+.audio-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .ptt-button {
   width: 240px;
   height: 240px;
@@ -27,6 +45,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   position: relative;
   overflow: hidden;
+  z-index: 1; /* Au-dessus de l'anneau */
 
   /* Mobile touch optimizations */
   touch-action: none;
@@ -189,6 +208,11 @@
     height: 200px;
   }
 
+  .audio-ring {
+    width: 240px;
+    height: 240px;
+  }
+
   .ptt-icon {
     width: 56px;
     height: 56px;
@@ -208,6 +232,11 @@
   .ptt-button {
     width: 160px;
     height: 160px;
+  }
+
+  .audio-ring {
+    width: 200px;
+    height: 200px;
   }
 
   .ptt-icon {
