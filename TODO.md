@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
-**Dernière mise à jour** : 2026-05-22
-**Phase actuelle** : PHASE 1 - Fondations (Tests finaux en cours)
+**Dernière mise à jour** : 2026-05-23
+**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours)
 
 ---
 
@@ -148,14 +148,14 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ## PHASE 2 — Fonctionnalités professionnelles
 
 ### 2.1 Groupes et routing
-- [ ] Config YAML : multi-groupes, multi-canaux
-- [ ] Routing dynamique serveur (groupe → canaux audio)
-- [ ] Client : sélecteur groupe (dropdown)
-- [ ] Client : affichage canaux groupe actif
+- [x] Config YAML : multi-groupes, multi-canaux
+- [x] Routing dynamique serveur (groupe → canaux audio)
+- [x] Client : sélecteur groupe (dropdown)
+- [x] Client : affichage canaux groupe actif
 
 ### 2.2 Modes PTT avancés
-- [ ] Mode continu : toggle ON/OFF
-- [ ] Vibration + indicateur visuel rouge (lock actif)
+- [x] Mode continu : toggle ON/OFF (appui long 3s)
+- [x] Vibration + indicateur visuel rouge (lock actif)
 - [ ] Préférences utilisateur (mode par défaut)
 
 ### 2.3 Interface admin
@@ -203,11 +203,17 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ## Prochaines actions immédiates
 
-1. Créer structure dossiers projet
-2. Initialiser package.json serveur + client
-3. Script install/macos.sh (télécharger livekit-server)
-4. Serveur : lancer LiveKit binaire
-5. Client : setup React + Vite
+### Phase 2 - Suite
+1. ✅ Multi-groupes avec sélection dynamique (2.1)
+2. ✅ Mode PTT continu par appui long (2.2)
+3. ⏭️ Préférences utilisateur pour mode PTT par défaut
+4. ⏭️ Interface admin web (/admin) pour gestion groupes (2.3)
+5. ⏭️ Web Push notifications pour appels privés (2.4)
+
+### Phase 3 - Préparation
+- Support Linux (JACK/PipeWire backends)
+- Intégration Dante/AES67
+- Tests charge 30+ clients
 
 ---
 
