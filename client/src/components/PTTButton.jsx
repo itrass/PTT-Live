@@ -4,15 +4,20 @@ import './PTTButton.css';
 /**
  * Bouton PTT principal
  * Gère touch et mouse events pour desktop et mobile
- * Modes : PTT classique (maintenir) ou mode continu (toggle)
- * Activation mode continu : appui long 3s
+ * Modes :
+ * - PTT classique : maintenir pour parler
+ * - Mode continu (lock) : glisser vers le haut pendant qu'on parle
  */
 export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
   const buttonRef = useRef(null);
   const isPressingRef = useRef(false);
-  const longPressTimerRef = useRef(null);
   const [isLockMode, setIsLockMode] = useState(false);
-  const [lockProgress, setLockProgress] = useState(0);
+  const isLockModeRef = useRef(false); // Ref pour accès immédiat dans event handlers
+
+  // Drag tracking
+  const dragStartYRef = useRef(null);
+  const currentYRef = useRef(null);
+  const [dragOffset, setDragOffset] = useState(0); // Offset visuel du drag (en pixels)
 
   useEffect(() => {
     const button = buttonRef.current;
@@ -23,163 +28,240 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
       e.preventDefault();
     };
 
-    // Démarrer timer pour mode lock
-    const startLongPressTimer = () => {
-      // Animation de progression (0 → 100 en 3s)
-      const duration = 3000;
-      const startTime = Date.now();
-
-      const updateProgress = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(100, (elapsed / duration) * 100);
-        setLockProgress(progress);
-
-        if (elapsed >= duration) {
-          // Mode lock activé
-          activateLockMode();
-        } else {
-          longPressTimerRef.current = requestAnimationFrame(updateProgress);
-        }
-      };
-
-      longPressTimerRef.current = requestAnimationFrame(updateProgress);
-    };
-
-    const cancelLongPressTimer = () => {
-      if (longPressTimerRef.current) {
-        cancelAnimationFrame(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-      setLockProgress(0);
-    };
-
-    const activateLockMode = () => {
-      console.log('🔒 Mode lock activé');
-      setIsLockMode(true);
-      cancelLongPressTimer();
-
-      // Vibration longue pour feedback
-      if (navigator.vibrate) {
-        navigator.vibrate([100, 50, 100]);
-      }
-    };
-
-    const toggleLockMode = () => {
-      if (isLockMode) {
-        // Désactiver mode lock
-        console.log('🔓 Mode lock désactivé');
-        setIsLockMode(false);
-        onPressEnd();
-      } else {
-        // En mode normal, un clic simple ne fait rien
-        // (il faut maintenir ou activer le mode lock)
-      }
-    };
-
     // Touch events (mobile)
     const handleTouchStart = (e) => {
       e.preventDefault();
-      console.log('🖐️ Touch start');
+      const touch = e.touches[0];
+      console.log('🖐️ Touch start at Y:', touch.clientY);
 
-      if (isLockMode) {
-        // En mode lock, un tap désactive le mode
+      // En mode lock, un tap désactive le mode
+      if (isLockModeRef.current) {
         toggleLockMode();
-      } else {
-        // Mode PTT normal : démarrer
-        if (!isPressingRef.current) {
-          isPressingRef.current = true;
-          onPressStart();
-          // Démarrer timer pour mode lock
-          startLongPressTimer();
-        }
+        return;
+      }
+
+      // Mode PTT normal : démarrer + init drag
+      if (!isPressingRef.current) {
+        isPressingRef.current = true;
+        dragStartYRef.current = touch.clientY;
+        currentYRef.current = touch.clientY;
+        onPressStart();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      e.preventDefault();
+
+      // Pas de drag en mode lock
+      if (isLockModeRef.current || !isPressingRef.current) {
+        return;
+      }
+
+      const touch = e.touches[0];
+      currentYRef.current = touch.clientY;
+
+      // Calculer le déplacement vertical (négatif = vers le haut)
+      const deltaY = dragStartYRef.current - touch.clientY;
+
+      // Limiter le drag vers le haut (max 100px)
+      const offset = Math.max(0, Math.min(100, deltaY));
+      setDragOffset(offset);
+
+      console.log('📏 Drag offset:', offset);
+
+      // Si on a glissé de 80px vers le haut, activer le mode lock
+      if (offset >= 80) {
+        activateLockMode();
       }
     };
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
-      console.log('🖐️ Touch end');
+      console.log('🖐️ Touch end, dragOffset:', dragOffset);
 
-      if (!isLockMode) {
-        // Mode PTT normal : arrêter
-        if (isPressingRef.current) {
-          isPressingRef.current = false;
-          onPressEnd();
-          // Annuler timer si pas encore 3s
-          cancelLongPressTimer();
-        }
+      // Réinitialiser le drag
+      dragStartYRef.current = null;
+      currentYRef.current = null;
+      setDragOffset(0);
+
+      // En mode lock, ne rien faire (le micro reste actif)
+      if (isLockModeRef.current) {
+        return;
+      }
+
+      // Mode PTT normal : arrêter
+      if (isPressingRef.current) {
+        isPressingRef.current = false;
+        onPressEnd();
       }
     };
 
     // Mouse events (desktop)
     const handleMouseDown = (e) => {
       e.preventDefault();
+      console.log('🖱️ Mouse down at Y:', e.clientY);
 
-      if (isLockMode) {
+      // En mode lock, un clic désactive le mode
+      if (isLockModeRef.current) {
         toggleLockMode();
-      } else {
-        if (!isPressingRef.current) {
-          isPressingRef.current = true;
-          onPressStart();
-          startLongPressTimer();
-        }
+        return;
+      }
+
+      if (!isPressingRef.current) {
+        isPressingRef.current = true;
+        dragStartYRef.current = e.clientY;
+        currentYRef.current = e.clientY;
+        onPressStart();
+      }
+    };
+
+    const handleMouseMove = (e) => {
+      // Pas de drag en mode lock
+      if (isLockModeRef.current || !isPressingRef.current) {
+        return;
+      }
+
+      currentYRef.current = e.clientY;
+
+      // Calculer le déplacement vertical (négatif = vers le haut)
+      const deltaY = dragStartYRef.current - e.clientY;
+
+      // Limiter le drag vers le haut (max 100px)
+      const offset = Math.max(0, Math.min(100, deltaY));
+      setDragOffset(offset);
+
+      // Si on a glissé de 80px vers le haut, activer le mode lock
+      if (offset >= 80) {
+        activateLockMode();
       }
     };
 
     const handleMouseUp = (e) => {
       e.preventDefault();
+      console.log('🖱️ Mouse up, dragOffset:', dragOffset);
 
-      if (!isLockMode) {
-        if (isPressingRef.current) {
-          isPressingRef.current = false;
-          onPressEnd();
-          cancelLongPressTimer();
-        }
+      // Réinitialiser le drag
+      dragStartYRef.current = null;
+      currentYRef.current = null;
+      setDragOffset(0);
+
+      // En mode lock, ne rien faire
+      if (isLockModeRef.current) {
+        return;
+      }
+
+      if (isPressingRef.current) {
+        isPressingRef.current = false;
+        onPressEnd();
       }
     };
 
     const handleMouseLeave = (e) => {
       // Si on quitte le bouton en maintenant, on arrête (sauf en mode lock)
-      if (!isLockMode && isPressingRef.current) {
+      if (!isLockModeRef.current && isPressingRef.current) {
+        // Réinitialiser le drag
+        dragStartYRef.current = null;
+        currentYRef.current = null;
+        setDragOffset(0);
+
         isPressingRef.current = false;
         onPressEnd();
-        cancelLongPressTimer();
       }
     };
 
     // Attacher events
     button.addEventListener('touchstart', handleTouchStart, { passive: false });
+    button.addEventListener('touchmove', handleTouchMove, { passive: false });
     button.addEventListener('touchend', handleTouchEnd, { passive: false });
     button.addEventListener('touchcancel', handleTouchEnd, { passive: false });
     button.addEventListener('mousedown', handleMouseDown);
+    button.addEventListener('mousemove', handleMouseMove);
     button.addEventListener('mouseup', handleMouseUp);
     button.addEventListener('mouseleave', handleMouseLeave);
     button.addEventListener('contextmenu', preventDefault);
 
     return () => {
       button.removeEventListener('touchstart', handleTouchStart);
+      button.removeEventListener('touchmove', handleTouchMove);
       button.removeEventListener('touchend', handleTouchEnd);
       button.removeEventListener('touchcancel', handleTouchEnd);
       button.removeEventListener('mousedown', handleMouseDown);
+      button.removeEventListener('mousemove', handleMouseMove);
       button.removeEventListener('mouseup', handleMouseUp);
       button.removeEventListener('mouseleave', handleMouseLeave);
       button.removeEventListener('contextmenu', preventDefault);
     };
   }, [onPressStart, onPressEnd]);
 
+  // Fonction pour activer le mode lock
+  const activateLockMode = () => {
+    console.log('🔒 Mode lock activé par drag');
+    setIsLockMode(true);
+    isLockModeRef.current = true;
+
+    // Réinitialiser le drag
+    setDragOffset(0);
+    dragStartYRef.current = null;
+    currentYRef.current = null;
+
+    // Le micro est déjà actif (onPressStart a été appelé)
+
+    // Vibration pour feedback
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100]);
+    }
+  };
+
+  // Fonction pour basculer le mode lock (appelée par le toggle externe)
+  const toggleLockMode = () => {
+    const newLockMode = !isLockModeRef.current;
+    console.log('🔄 Toggle lock mode:', isLockModeRef.current, '→', newLockMode);
+
+    setIsLockMode(newLockMode);
+    isLockModeRef.current = newLockMode;
+
+    if (newLockMode) {
+      // Activer le mode lock : démarrer l'audio
+      console.log('🔒 Mode lock ON');
+      onPressStart();
+
+      // Vibration pour feedback
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+    } else {
+      // Désactiver le mode lock : couper l'audio
+      console.log('🔓 Mode lock OFF');
+      onPressEnd();
+
+      // Vibration pour feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }
+  };
+
   return (
     <div className="ptt-container">
+      {/* Zone de drag vers le haut (indicateur visuel) */}
+      {dragOffset > 0 && !isLockMode && (
+        <div className="drag-indicator" style={{ opacity: dragOffset / 80 }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32">
+            <path d="M7 14l5-5 5 5H7z"/>
+          </svg>
+          <span>Glissez pour verrouiller</span>
+        </div>
+      )}
+
+      {/* Bouton PTT principal */}
       <button
         ref={buttonRef}
         className={`ptt-button ${isTalking ? 'talking' : ''} ${isLockMode ? 'locked' : ''}`}
         type="button"
+        style={{
+          transform: dragOffset > 0 && !isLockMode ? `translateY(-${dragOffset * 0.3}px)` : 'none'
+        }}
       >
-        {/* Indicateur de progression pour mode lock */}
-        {lockProgress > 0 && !isLockMode && (
-          <div
-            className="lock-progress"
-            style={{ width: `${lockProgress}%` }}
-          />
-        )}
 
         <div className="ptt-icon">
           {isTalking ? (
@@ -218,10 +300,8 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
         {isLockMode
           ? 'Tapez pour désactiver le mode continu'
           : isTalking
-            ? lockProgress > 0
-              ? 'Maintenez 3s pour mode continu...'
-              : 'Relâchez pour arrêter'
-            : 'Appuyez et maintenez le bouton • Maintenez 3s pour mode continu'}
+            ? 'Glissez vers le haut pour verrouiller • Relâchez pour arrêter'
+            : 'Appuyez et maintenez pour parler • Glissez vers le haut pour verrouiller'}
       </p>
     </div>
   );
