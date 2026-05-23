@@ -1,13 +1,18 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './PTTButton.css';
 
 /**
  * Bouton PTT principal
  * Gère touch et mouse events pour desktop et mobile
+ * Modes : PTT classique (maintenir) ou mode continu (toggle)
+ * Activation mode continu : appui long 3s
  */
 export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
   const buttonRef = useRef(null);
   const isPressingRef = useRef(false);
+  const longPressTimerRef = useRef(null);
+  const [isLockMode, setIsLockMode] = useState(false);
+  const [lockProgress, setLockProgress] = useState(0);
 
   useEffect(() => {
     const button = buttonRef.current;
@@ -18,47 +23,126 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
       e.preventDefault();
     };
 
+    // Démarrer timer pour mode lock
+    const startLongPressTimer = () => {
+      // Animation de progression (0 → 100 en 3s)
+      const duration = 3000;
+      const startTime = Date.now();
+
+      const updateProgress = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / duration) * 100);
+        setLockProgress(progress);
+
+        if (elapsed >= duration) {
+          // Mode lock activé
+          activateLockMode();
+        } else {
+          longPressTimerRef.current = requestAnimationFrame(updateProgress);
+        }
+      };
+
+      longPressTimerRef.current = requestAnimationFrame(updateProgress);
+    };
+
+    const cancelLongPressTimer = () => {
+      if (longPressTimerRef.current) {
+        cancelAnimationFrame(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      setLockProgress(0);
+    };
+
+    const activateLockMode = () => {
+      console.log('🔒 Mode lock activé');
+      setIsLockMode(true);
+      cancelLongPressTimer();
+
+      // Vibration longue pour feedback
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
+    };
+
+    const toggleLockMode = () => {
+      if (isLockMode) {
+        // Désactiver mode lock
+        console.log('🔓 Mode lock désactivé');
+        setIsLockMode(false);
+        onPressEnd();
+      } else {
+        // En mode normal, un clic simple ne fait rien
+        // (il faut maintenir ou activer le mode lock)
+      }
+    };
+
     // Touch events (mobile)
     const handleTouchStart = (e) => {
       e.preventDefault();
       console.log('🖐️ Touch start');
-      if (!isPressingRef.current) {
-        isPressingRef.current = true;
-        onPressStart();
+
+      if (isLockMode) {
+        // En mode lock, un tap désactive le mode
+        toggleLockMode();
+      } else {
+        // Mode PTT normal : démarrer
+        if (!isPressingRef.current) {
+          isPressingRef.current = true;
+          onPressStart();
+          // Démarrer timer pour mode lock
+          startLongPressTimer();
+        }
       }
     };
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
       console.log('🖐️ Touch end');
-      if (isPressingRef.current) {
-        isPressingRef.current = false;
-        onPressEnd();
+
+      if (!isLockMode) {
+        // Mode PTT normal : arrêter
+        if (isPressingRef.current) {
+          isPressingRef.current = false;
+          onPressEnd();
+          // Annuler timer si pas encore 3s
+          cancelLongPressTimer();
+        }
       }
     };
 
     // Mouse events (desktop)
     const handleMouseDown = (e) => {
       e.preventDefault();
-      if (!isPressingRef.current) {
-        isPressingRef.current = true;
-        onPressStart();
+
+      if (isLockMode) {
+        toggleLockMode();
+      } else {
+        if (!isPressingRef.current) {
+          isPressingRef.current = true;
+          onPressStart();
+          startLongPressTimer();
+        }
       }
     };
 
     const handleMouseUp = (e) => {
       e.preventDefault();
-      if (isPressingRef.current) {
-        isPressingRef.current = false;
-        onPressEnd();
+
+      if (!isLockMode) {
+        if (isPressingRef.current) {
+          isPressingRef.current = false;
+          onPressEnd();
+          cancelLongPressTimer();
+        }
       }
     };
 
     const handleMouseLeave = (e) => {
-      // Si on quitte le bouton en maintenant, on arrête
-      if (isPressingRef.current) {
+      // Si on quitte le bouton en maintenant, on arrête (sauf en mode lock)
+      if (!isLockMode && isPressingRef.current) {
         isPressingRef.current = false;
         onPressEnd();
+        cancelLongPressTimer();
       }
     };
 
@@ -86,9 +170,17 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
     <div className="ptt-container">
       <button
         ref={buttonRef}
-        className={`ptt-button ${isTalking ? 'talking' : ''}`}
+        className={`ptt-button ${isTalking ? 'talking' : ''} ${isLockMode ? 'locked' : ''}`}
         type="button"
       >
+        {/* Indicateur de progression pour mode lock */}
+        {lockProgress > 0 && !isLockMode && (
+          <div
+            className="lock-progress"
+            style={{ width: `${lockProgress}%` }}
+          />
+        )}
+
         <div className="ptt-icon">
           {isTalking ? (
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -103,13 +195,33 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd }) {
             </svg>
           )}
         </div>
+
+        {/* Badge mode lock */}
+        {isLockMode && (
+          <div className="lock-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM9 8V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9z"/>
+            </svg>
+          </div>
+        )}
+
         <span className="ptt-label">
-          {isTalking ? 'En cours...' : 'Maintenir pour parler'}
+          {isLockMode
+            ? 'Mode continu actif'
+            : isTalking
+              ? 'En cours...'
+              : 'Maintenir pour parler'}
         </span>
       </button>
 
       <p className="ptt-hint">
-        {isTalking ? 'Relâchez pour arrêter' : 'Appuyez et maintenez le bouton'}
+        {isLockMode
+          ? 'Tapez pour désactiver le mode continu'
+          : isTalking
+            ? lockProgress > 0
+              ? 'Maintenez 3s pour mode continu...'
+              : 'Relâchez pour arrêter'
+            : 'Appuyez et maintenez le bouton • Maintenez 3s pour mode continu'}
       </p>
     </div>
   );
