@@ -206,6 +206,25 @@ app.get('/config', (req, res) => {
 });
 
 /**
+ * GET /groups
+ * Retourne la liste des groupes disponibles (simplifié)
+ */
+app.get('/groups', (req, res) => {
+  try {
+    const groups = config.groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      description: g.description
+    }));
+
+    res.json({ groups });
+  } catch (error) {
+    log('error', 'Erreur GET /groups:', error);
+    res.status(500).json({ error: 'Groups unavailable' });
+  }
+});
+
+/**
  * POST /token
  * Génère un token LiveKit pour un client
  * Body: { username: string, groupId: string }
@@ -287,6 +306,7 @@ app.get('/', (req, res) => {
     phase: 'Phase 1 - MVP',
     endpoints: [
       'GET  /config - Configuration groupes',
+      'GET  /groups - Liste des groupes',
       'POST /token  - Générer token client',
       'GET  /health - Health check'
     ]

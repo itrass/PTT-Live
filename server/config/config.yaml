@@ -37,6 +37,30 @@ groups:
         audioInput: 1
         audioOutput: 1
 
+  - id: technique
+    name: "Équipe Technique"
+    description: "Techniciens, électriciens, machinistes"
+    audioBitrate: 96
+    channels:
+      - id: tech-main
+        name: "Technique général"
+        audioInput: 2
+        audioOutput: 2
+
+  - id: sonorisation
+    name: "Équipe Sonorisation"
+    description: "Ingénieurs son, retours"
+    audioBitrate: 128  # Qualité supérieure pour les ingénieurs son
+    channels:
+      - id: son-main
+        name: "Son principal"
+        audioInput: 3
+        audioOutput: 3
+      - id: son-retours
+        name: "Retours scène"
+        audioInput: 4
+        audioOutput: 4
+
 # Configuration serveur
 server:
   host: "0.0.0.0"

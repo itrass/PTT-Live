@@ -3,6 +3,7 @@ import useLiveKit from './hooks/useLiveKit';
 import PTTButton from './components/PTTButton';
 import UserList from './components/UserList';
 import AudioIndicator from './components/AudioIndicator';
+import GroupSelector from './components/GroupSelector';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -21,6 +22,7 @@ function App() {
     audioLevel,
     connect,
     disconnect,
+    switchGroup,
     startTalking,
     stopTalking
   } = useLiveKit();
@@ -112,6 +114,42 @@ function App() {
     setError(null);
   };
 
+  const handleGroupChange = async (newGroupId) => {
+    console.log('🔄 Changement de groupe:', groupId, '→', newGroupId);
+
+    try {
+      // Obtenir nouveau token pour le nouveau groupe
+      const response = await fetch(`${API_URL}/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, groupId: newGroupId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur serveur');
+      }
+
+      const data = await response.json();
+
+      // Adapter l'URL LiveKit selon le protocole de la page
+      let livekitUrl = data.url;
+      if (window.location.protocol === 'https:') {
+        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
+      }
+
+      // Changer de room LiveKit
+      await switchGroup(livekitUrl, data.token);
+
+      // Mettre à jour l'état
+      setGroupId(newGroupId);
+      console.log('✓ Groupe changé avec succès');
+
+    } catch (err) {
+      console.error('Erreur changement de groupe:', err);
+      throw err; // Propager l'erreur au composant GroupSelector
+    }
+  };
+
   // Interface de connexion
   if (!isConnected) {
     return (
@@ -193,6 +231,13 @@ function App() {
       </header>
 
       <main className="app-main">
+        {/* Sélecteur de groupe */}
+        <GroupSelector
+          currentGroupId={groupId}
+          onGroupChange={handleGroupChange}
+          apiUrl={API_URL}
+        />
+
         {/* Liste des participants */}
         <UserList participants={participants} />
 

@@ -152,6 +152,26 @@ export default function useLiveKit() {
   }, []);
 
   /**
+   * Changer de groupe (reconnexion à une nouvelle room)
+   */
+  const switchGroup = useCallback(async (url, token) => {
+    console.log('🔄 Changement de groupe...');
+
+    // Déconnexion propre
+    cleanup();
+    if (roomRef.current) {
+      roomRef.current.disconnect();
+      roomRef.current = null;
+    }
+
+    setIsConnected(false);
+    setParticipants([]);
+
+    // Reconnexion avec nouveau token
+    await connect(url, token);
+  }, [connect]);
+
+  /**
    * Débloque l'audio sur mobile (iOS/Android)
    * Doit être appelé dans un gestionnaire d'événement utilisateur
    */
@@ -390,6 +410,7 @@ export default function useLiveKit() {
     audioLevel,
     connect,
     disconnect,
+    switchGroup,
     startTalking,
     stopTalking
   };

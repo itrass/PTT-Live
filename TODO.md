@@ -154,7 +154,6 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [ ] Client : affichage canaux groupe actif
 
 ### 2.2 Modes PTT avancés
-- [ ] PTT lock : appui long 3s → lock/unlock
 - [ ] Mode continu : toggle ON/OFF
 - [ ] Vibration + indicateur visuel rouge (lock actif)
 - [ ] Préférences utilisateur (mode par défaut)
