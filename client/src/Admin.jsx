@@ -16,9 +16,7 @@ function Admin() {
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [groupForm, setGroupForm] = useState({
-    id: '',
     name: '',
-    description: '',
     audioBitrate: 96,
     channels: []
   });
@@ -152,9 +150,7 @@ function Admin() {
   const startEditGroup = (group) => {
     setEditingGroup(group.id);
     setGroupForm({
-      id: group.id,
       name: group.name,
-      description: group.description || '',
       audioBitrate: group.audioBitrate || 96,
       channels: group.channels || []
     });
@@ -163,9 +159,7 @@ function Admin() {
 
   const resetGroupForm = () => {
     setGroupForm({
-      id: '',
       name: '',
-      description: '',
       audioBitrate: 96,
       channels: []
     });
@@ -178,7 +172,7 @@ function Admin() {
       ...groupForm,
       channels: [
         ...groupForm.channels,
-        { id: '', name: '', audioInput: 0, audioOutput: 0 }
+        { name: '', audioInput: 0, audioOutput: 0 }
       ]
     });
   };
@@ -295,38 +289,18 @@ function Admin() {
 
                   <div className="form-row">
                     <label>
-                      ID groupe
+                      Nom du groupe
                       <input
                         type="text"
-                        value={groupForm.id}
-                        onChange={(e) => setGroupForm({ ...groupForm, id: e.target.value })}
-                        disabled={!!editingGroup}
+                        value={groupForm.name}
+                        onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+                        placeholder="ex: Production, Technique..."
                         required
                       />
                     </label>
 
                     <label>
-                      Nom
-                      <input
-                        type="text"
-                        value={groupForm.name}
-                        onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                        required
-                      />
-                    </label>
-                  </div>
-
-                  <label>
-                    Description
-                    <input
-                      type="text"
-                      value={groupForm.description}
-                      onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                    />
-                  </label>
-
-                  <label>
-                    Bitrate audio (kbps)
+                      Bitrate audio (kbps)
                     <input
                       type="number"
                       value={groupForm.audioBitrate}
@@ -348,14 +322,7 @@ function Admin() {
                       <div key={index} className="channel-item">
                         <input
                           type="text"
-                          placeholder="ID canal"
-                          value={channel.id}
-                          onChange={(e) => updateChannel(index, 'id', e.target.value)}
-                          required
-                        />
-                        <input
-                          type="text"
-                          placeholder="Nom"
+                          placeholder="Nom canal (ex: Principal, Backup...)"
                           value={channel.name}
                           onChange={(e) => updateChannel(index, 'name', e.target.value)}
                           required
@@ -397,10 +364,7 @@ function Admin() {
               {groups.map(group => (
                 <div key={group.id} className="group-card">
                   <div className="group-header">
-                    <div>
-                      <h3>{group.name}</h3>
-                      <span className="group-id">#{group.id}</span>
-                    </div>
+                    <h3>{group.name}</h3>
                     <div className="group-actions">
                       <button onClick={() => startEditGroup(group)} className="btn-edit">
                         ✏️
@@ -410,10 +374,6 @@ function Admin() {
                       </button>
                     </div>
                   </div>
-
-                  {group.description && (
-                    <p className="group-description">{group.description}</p>
-                  )}
 
                   <div className="group-info">
                     <span>Bitrate: {group.audioBitrate || 96} kbps</span>

@@ -17,47 +17,31 @@ audio:
   jitterBufferMs: 40
 
 # Configuration des groupes
+# Format simplifié : nom du groupe + canaux
 groups:
-  - id: production
-    name: "Équipe Production"
-    description: "Réalisateur, cadreurs, régisseur"
-
-    # Qualité audio spécifique (optionnel, sinon utilise defaultBitrate)
-    audioBitrate: 96
-
-    # Canaux audio associés
+  - name: "Production"
+    audioBitrate: 96  # optionnel, sinon utilise defaultBitrate
     channels:
-      - id: prod-main
-        name: "Production principale"
+      - name: "Principal"
         audioInput: 0   # Index device CoreAudio/JACK
         audioOutput: 0
-
-      - id: prod-backup
-        name: "Production backup"
+      - name: "Backup"
         audioInput: 1
         audioOutput: 1
 
-  - id: technique
-    name: "Équipe Technique"
-    description: "Techniciens, électriciens, machinistes"
-    audioBitrate: 96
+  - name: "Technique"
     channels:
-      - id: tech-main
-        name: "Technique général"
+      - name: "Général"
         audioInput: 2
         audioOutput: 2
 
-  - id: sonorisation
-    name: "Équipe Sonorisation"
-    description: "Ingénieurs son, retours"
+  - name: "Sonorisation"
     audioBitrate: 128  # Qualité supérieure pour les ingénieurs son
     channels:
-      - id: son-main
-        name: "Son principal"
+      - name: "Principal"
         audioInput: 3
         audioOutput: 3
-      - id: son-retours
-        name: "Retours scène"
+      - name: "Retours"
         audioInput: 4
         audioOutput: 4
 

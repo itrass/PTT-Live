@@ -293,7 +293,7 @@
 
 .channel-item {
   display: grid;
-  grid-template-columns: 1fr 1fr 80px 80px 50px;
+  grid-template-columns: 2fr 80px 80px 50px;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   align-items: center;

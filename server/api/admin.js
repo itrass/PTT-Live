@@ -13,6 +13,21 @@ import { dirname } from 'path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
 
+/**
+ * Génère un ID slug à partir d'un nom
+ */
+function slugify(text) {
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+}
+
 // État en mémoire des utilisateurs connectés
 const connectedUsers = new Map(); // identity -> { username, groupId, roomName, connectedAt, lastActivity }
 
@@ -140,34 +155,42 @@ router.get('/groups', (req, res) => {
 /**
  * POST /admin/groups
  * Crée un nouveau groupe
- * Body: { id, name, description, audioBitrate?, channels }
+ * Body: { name, audioBitrate?, channels }
+ * L'ID est généré automatiquement à partir du nom
  */
 router.post('/groups', (req, res) => {
   try {
-    const { id, name, description, audioBitrate, channels } = req.body;
+    const { name, audioBitrate, channels } = req.body;
 
-    if (!id || !name || !channels || !Array.isArray(channels)) {
+    if (!name || !channels || !Array.isArray(channels)) {
       return res.status(400).json({
-        error: 'Missing required fields: id, name, channels'
+        error: 'Missing required fields: name, channels'
       });
     }
 
     const config = loadConfig();
 
+    // Générer l'ID à partir du nom
+    const id = slugify(name);
+
     // Vérifier que l'ID n'existe pas déjà
     if (config.groups.find(g => g.id === id)) {
       return res.status(409).json({
-        error: `Group ${id} already exists`
+        error: `Group "${name}" already exists (ID: ${id})`
       });
     }
 
+    // Générer les IDs pour les canaux
+    const channelsWithIds = channels.map(channel => ({
+      ...channel,
+      id: channel.id || `${id}-${slugify(channel.name)}`
+    }));
+
     // Créer le nouveau groupe
     const newGroup = {
-      id,
       name,
-      description: description || '',
       audioBitrate: audioBitrate || config.audio.defaultBitrate,
-      channels
+      channels: channelsWithIds
     };
 
     config.groups.push(newGroup);
@@ -177,7 +200,7 @@ router.post('/groups', (req, res) => {
 
     res.status(201).json({
       message: 'Group created',
-      group: newGroup
+      group: { ...newGroup, id }
     });
 
   } catch (error) {
@@ -189,12 +212,12 @@ router.post('/groups', (req, res) => {
 /**
  * PUT /admin/groups/:id
  * Modifie un groupe existant
- * Body: { name?, description?, audioBitrate?, channels? }
+ * Body: { name?, audioBitrate?, channels? }
  */
 router.put('/groups/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, audioBitrate, channels } = req.body;
+    const { name, audioBitrate, channels } = req.body;
 
     const config = loadConfig();
     const groupIndex = config.groups.findIndex(g => g.id === id);
@@ -207,9 +230,14 @@ router.put('/groups/:id', (req, res) => {
 
     // Mettre à jour les champs fournis
     if (name !== undefined) config.groups[groupIndex].name = name;
-    if (description !== undefined) config.groups[groupIndex].description = description;
     if (audioBitrate !== undefined) config.groups[groupIndex].audioBitrate = audioBitrate;
-    if (channels !== undefined) config.groups[groupIndex].channels = channels;
+    if (channels !== undefined) {
+      // Générer les IDs pour les canaux s'ils n'existent pas
+      config.groups[groupIndex].channels = channels.map(channel => ({
+        ...channel,
+        id: channel.id || `${id}-${slugify(channel.name)}`
+      }));
+    }
 
     saveConfig(config);
 

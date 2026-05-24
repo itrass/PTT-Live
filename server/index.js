@@ -19,6 +19,38 @@ const configFile = readFileSync(configPath, 'utf8');
 const config = YAML.parse(configFile);
 
 /**
+ * Génère un ID slug à partir d'un nom
+ * Ex: "Équipe Production" -> "equipe-production"
+ */
+function slugify(text) {
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Retire les accents
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+}
+
+// Générer les IDs pour les groupes et canaux s'ils n'existent pas
+config.groups = config.groups.map(group => {
+  if (!group.id) {
+    group.id = slugify(group.name);
+  }
+  if (group.channels) {
+    group.channels = group.channels.map(channel => {
+      if (!channel.id) {
+        channel.id = `${group.id}-${slugify(channel.name)}`;
+      }
+      return channel;
+    });
+  }
+  return group;
+});
+
+/**
  * Détecte l'IP réseau locale (WiFi/Ethernet)
  * @returns {string|null} IP réseau ou null si non trouvée
  */
@@ -195,7 +227,6 @@ app.get('/config', (req, res) => {
       groups: config.groups.map(g => ({
         id: g.id,
         name: g.name,
-        description: g.description,
         channels: g.channels.map(c => ({
           id: c.id,
           name: c.name
@@ -222,8 +253,7 @@ app.get('/groups', (req, res) => {
   try {
     const groups = config.groups.map(g => ({
       id: g.id,
-      name: g.name,
-      description: g.description
+      name: g.name
     }));
 
     res.json({ groups });
