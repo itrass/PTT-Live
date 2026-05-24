@@ -232,8 +232,8 @@ function Admin() {
   return (
     <div className="admin-container">
       <header className="admin-header">
-        <h1>🎛️ PTT Live - Administration</h1>
-        <a href="/" className="btn-back">← Retour client</a>
+        <h1>PTT Live - Administration</h1>
+        <a href="/" className="btn-back">← Retour</a>
       </header>
 
       <nav className="admin-tabs">
@@ -266,7 +266,7 @@ function Admin() {
       <main className="admin-content">
         {error && (
           <div className="admin-error">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -343,7 +343,7 @@ function Admin() {
                           min="0"
                         />
                         <button type="button" onClick={() => removeChannel(index)} className="btn-danger">
-                          ✕
+                          ×
                         </button>
                       </div>
                     ))}
@@ -368,10 +368,10 @@ function Admin() {
                     <h3>{group.name}</h3>
                     <div className="group-actions">
                       <button onClick={() => startEditGroup(group)} className="btn-edit">
-                        ✏️
+                        Modifier
                       </button>
                       <button onClick={() => handleDeleteGroup(group.id)} className="btn-delete">
-                        🗑️
+                        Supprimer
                       </button>
                     </div>
                   </div>
