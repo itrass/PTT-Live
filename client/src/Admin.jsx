@@ -301,14 +301,15 @@ function Admin() {
 
                     <label>
                       Bitrate audio (kbps)
-                    <input
-                      type="number"
-                      value={groupForm.audioBitrate}
-                      onChange={(e) => setGroupForm({ ...groupForm, audioBitrate: parseInt(e.target.value) })}
-                      min="32"
-                      max="320"
-                    />
-                  </label>
+                      <input
+                        type="number"
+                        value={groupForm.audioBitrate}
+                        onChange={(e) => setGroupForm({ ...groupForm, audioBitrate: parseInt(e.target.value) })}
+                        min="32"
+                        max="320"
+                      />
+                    </label>
+                  </div>
 
                   <div className="channels-section">
                     <div className="channels-header">
