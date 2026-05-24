@@ -44,10 +44,26 @@ const configPath = join(__dirname, '..', 'config', 'config.yaml');
 
 /**
  * Charge la configuration depuis le fichier YAML
+ * et génère les IDs à partir des noms
  */
 function loadConfig() {
   const configFile = readFileSync(configPath, 'utf8');
-  return YAML.parse(configFile);
+  const config = YAML.parse(configFile);
+
+  // Générer les IDs pour les groupes et canaux
+  config.groups = config.groups.map(group => {
+    const groupId = slugify(group.name);
+    return {
+      ...group,
+      id: groupId,
+      channels: group.channels ? group.channels.map(channel => ({
+        ...channel,
+        id: channel.id || `${groupId}-${slugify(channel.name)}`
+      })) : []
+    };
+  });
+
+  return config;
 }
 
 /**
@@ -213,6 +229,7 @@ router.post('/groups', (req, res) => {
  * PUT /admin/groups/:id
  * Modifie un groupe existant
  * Body: { name?, audioBitrate?, channels? }
+ * Note: l'ID est un slug généré, on cherche le groupe par nom dans le YAML
  */
 router.put('/groups/:id', (req, res) => {
   try {
@@ -220,7 +237,9 @@ router.put('/groups/:id', (req, res) => {
     const { name, audioBitrate, channels } = req.body;
 
     const config = loadConfig();
-    const groupIndex = config.groups.findIndex(g => g.id === id);
+
+    // Chercher le groupe par son nom (qui correspond à l'ID slugifié)
+    const groupIndex = config.groups.findIndex(g => slugify(g.name) === id);
 
     if (groupIndex === -1) {
       return res.status(404).json({
@@ -232,10 +251,11 @@ router.put('/groups/:id', (req, res) => {
     if (name !== undefined) config.groups[groupIndex].name = name;
     if (audioBitrate !== undefined) config.groups[groupIndex].audioBitrate = audioBitrate;
     if (channels !== undefined) {
-      // Générer les IDs pour les canaux s'ils n'existent pas
+      // Pas besoin de générer les IDs ici, ils seront générés au chargement
       config.groups[groupIndex].channels = channels.map(channel => ({
-        ...channel,
-        id: channel.id || `${id}-${slugify(channel.name)}`
+        name: channel.name,
+        audioInput: channel.audioInput,
+        audioOutput: channel.audioOutput
       }));
     }
 
@@ -243,9 +263,14 @@ router.put('/groups/:id', (req, res) => {
 
     addLog('info', `Group updated: ${config.groups[groupIndex].name}`, { id });
 
+    // Recharger pour obtenir les IDs générés
+    const updatedConfig = loadConfig();
+    const updatedGroupIndex = updatedConfig.groups.findIndex(g => slugify(g.name) === id || slugify(g.name) === slugify(name));
+    const updatedGroup = updatedGroupIndex !== -1 ? updatedConfig.groups[updatedGroupIndex] : null;
+
     res.json({
       message: 'Group updated',
-      group: config.groups[groupIndex]
+      group: updatedGroup
     });
 
   } catch (error) {
@@ -257,13 +282,14 @@ router.put('/groups/:id', (req, res) => {
 /**
  * DELETE /admin/groups/:id
  * Supprime un groupe
+ * Note: l'ID est un slug généré, on cherche le groupe par nom dans le YAML
  */
 router.delete('/groups/:id', (req, res) => {
   try {
     const { id } = req.params;
 
     const config = loadConfig();
-    const groupIndex = config.groups.findIndex(g => g.id === id);
+    const groupIndex = config.groups.findIndex(g => slugify(g.name) === id);
 
     if (groupIndex === -1) {
       return res.status(404).json({
