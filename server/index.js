@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import { networkInterfaces } from 'os';
 import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
+import adminRouter, { registerUser, addLog } from './api/admin.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -83,6 +84,9 @@ function log(level, ...args) {
   if (msgLevel >= configLevel) {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [${level.toUpperCase()}]`, ...args);
+
+    // Ajouter au système de logs admin
+    addLog(level, args.join(' '));
   }
 }
 
@@ -173,6 +177,11 @@ app.use((req, res, next) => {
   log('debug', `${req.method} ${req.path}`);
   next();
 });
+
+// ========== Routes Admin ==========
+
+// Monter les routes admin sous /admin
+app.use('/admin', adminRouter);
 
 // ========== Routes API ==========
 
@@ -268,6 +277,9 @@ app.post('/token', async (req, res) => {
     const token = await at.toJwt();
 
     log('info', `Token généré: ${username} → ${groupId}`);
+
+    // Enregistrer l'utilisateur dans le système admin
+    registerUser(participantIdentity, username, groupId, roomName);
 
     res.json({
       token,

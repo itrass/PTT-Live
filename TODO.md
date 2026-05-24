@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
-**Dernière mise à jour** : 2026-05-23
-**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours)
+**Dernière mise à jour** : 2026-05-24
+**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours - Phase 2.3 complétée)
 
 ---
 
@@ -159,11 +159,11 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [ ] Préférences utilisateur (mode par défaut)
 
 ### 2.3 Interface admin
-- [ ] Page admin web (/admin)
-- [ ] Gestion groupes (CRUD)
-- [ ] Gestion utilisateurs connectés
-- [ ] Monitoring temps réel (latence, qualité)
-- [ ] Logs serveur (affichage live)
+- [x] Page admin web (/admin)
+- [x] Gestion groupes (CRUD)
+- [x] Gestion utilisateurs connectés
+- [x] Monitoring temps réel (latence, qualité)
+- [x] Logs serveur (affichage live)
 
 ### 2.4 Notifications
 - [ ] Web Push : appels privés
@@ -206,8 +206,8 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ### Phase 2 - Suite
 1. ✅ Multi-groupes avec sélection dynamique (2.1)
 2. ✅ Mode PTT continu par appui long (2.2)
-3. ⏭️ Préférences utilisateur pour mode PTT par défaut
-4. ⏭️ Interface admin web (/admin) pour gestion groupes (2.3)
+3. ✅ Interface admin web (/admin) pour gestion groupes (2.3)
+4. ⏭️ Préférences utilisateur pour mode PTT par défaut (2.2)
 5. ⏭️ Web Push notifications pour appels privés (2.4)
 
 ### Phase 3 - Préparation
