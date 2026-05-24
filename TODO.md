@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
 **Dernière mise à jour** : 2026-05-24
-**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours - Phase 2.3 complétée)
+**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours - Phase 2.5 Configuration audio visuelle)
 
 ---
 
@@ -165,6 +165,41 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] Monitoring temps réel (latence, qualité)
 - [x] Logs serveur (affichage live)
 
+### 2.5 Configuration audio visuelle (PRIORITÉ)
+#### Détection et sélection carte son
+- [ ] API GET /api/audio/devices (énumération cartes son CoreAudio/JACK)
+- [ ] API POST /api/audio/device (sélection + config sample rate/buffer)
+- [ ] Page admin : dropdown sélection carte son
+- [ ] Page admin : affichage infos carte (entrées/sorties, sample rate)
+- [ ] Backend : reload bridge audio sans redémarrer serveur
+
+#### Nommage des canaux
+- [ ] API PUT /api/audio/channels/names (sauvegarde noms canaux)
+- [ ] API GET /api/audio/channels/names (récupération noms)
+- [ ] Page admin : formulaire nommage canaux (inputs/outputs)
+- [ ] Page admin : filtre "canaux nommés uniquement"
+- [ ] Sauvegarde automatique dans config.yaml
+
+#### Matrice de routing (style Dante Controller)
+- [ ] API GET /api/audio/routing (récupération routing actuel)
+- [ ] API POST /api/audio/routing (sauvegarde routing)
+- [ ] Component React : AudioRoutingMatrix.jsx
+  - [ ] Matrice inputs → groups (checkboxes)
+  - [ ] Matrice groups → outputs (checkboxes)
+  - [ ] Dropdowns gain par route (-12dB à +6dB)
+  - [ ] Indicateurs niveaux temps réel (WebSocket)
+- [ ] Backend : GroupAudioRouter.js (routing par groupe)
+  - [ ] Mix canaux physiques multiples → groupe
+  - [ ] Distribution groupe → canaux physiques multiples
+  - [ ] Gestion gains individuels
+  - [ ] Support canaux partagés (mixage additif)
+- [ ] Backend : ConfigManager.js (lecture/écriture YAML)
+  - [ ] Méthodes update pour device/channels/routing
+  - [ ] Sauvegarde atomique avec backup auto
+  - [ ] Émission événement config-updated
+- [ ] WebSocket audio-levels (monitoring temps réel)
+- [ ] Tests : routing multi-canaux, canaux partagés
+
 ### 2.4 Notifications
 - [ ] Web Push : appels privés
 - [ ] Service Worker : gestion notifications
@@ -203,12 +238,17 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ## Prochaines actions immédiates
 
-### Phase 2 - Suite
+### Phase 2 - Suite (PRIORITÉS)
 1. ✅ Multi-groupes avec sélection dynamique (2.1)
 2. ✅ Mode PTT continu par appui long (2.2)
 3. ✅ Interface admin web (/admin) pour gestion groupes (2.3)
-4. ⏭️ Préférences utilisateur pour mode PTT par défaut (2.2)
-5. ⏭️ Web Push notifications pour appels privés (2.4)
+4. 🎯 **Configuration audio visuelle (2.5)** ← PRIORITÉ ABSOLUE
+   - Détection/sélection carte son via interface admin
+   - Nommage canaux (inputs/outputs)
+   - Matrice routing style Dante Controller
+   - Sauvegarde automatique dans YAML
+5. ⏭️ Préférences utilisateur pour mode PTT par défaut (2.2)
+6. ⏭️ Web Push notifications pour appels privés (2.4)
 
 ### Phase 3 - Préparation
 - Support Linux (JACK/PipeWire backends)
