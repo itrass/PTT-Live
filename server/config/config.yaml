@@ -1,29 +1,20 @@
 # PTT Live - Configuration
-# Phase 1: Configuration basique (1 groupe, support multi-canaux)
+# Format simplifié : nom du groupe + canaux (les IDs sont générés automatiquement)
 
 # Configuration audio globale
 audio:
   sampleRate: 48000
   frameSize: 20  # ms
-
-  # Qualité Opus configurable
-  # Voix économique: 32-64 kbps (WiFi limité)
-  # Voix standard: 96 kbps (défaut)
-  # Voix HD: 128-192 kbps
-  # Musique: 256-320 kbps
   defaultBitrate: 96  # kbps
-
-  # Jitter buffer
   jitterBufferMs: 40
 
 # Configuration des groupes
-# Format simplifié : nom du groupe + canaux
 groups:
   - name: "Production"
-    audioBitrate: 96  # optionnel, sinon utilise defaultBitrate
+    audioBitrate: 96
     channels:
       - name: "Principal"
-        audioInput: 0   # Index device CoreAudio/JACK
+        audioInput: 0
         audioOutput: 0
       - name: "Backup"
         audioInput: 1
@@ -36,7 +27,7 @@ groups:
         audioOutput: 2
 
   - name: "Sonorisation"
-    audioBitrate: 128  # Qualité supérieure pour les ingénieurs son
+    audioBitrate: 128
     channels:
       - name: "Principal"
         audioInput: 3
@@ -49,14 +40,11 @@ groups:
 server:
   host: "0.0.0.0"
   port: 3000
-
-  # LiveKit
   livekit:
     url: "ws://localhost:7880"
-    # API key/secret dans .env (LIVEKIT_API_KEY, LIVEKIT_API_SECRET)
 
 # Logging
 logging:
-  level: "debug"  # debug, info, warn, error
+  level: "debug"
   logLatency: true
   logAudioStats: true

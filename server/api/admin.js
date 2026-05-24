@@ -68,9 +68,25 @@ function loadConfig() {
 
 /**
  * Sauvegarde la configuration dans le fichier YAML
+ * Ne sauvegarde PAS les IDs (ils sont générés dynamiquement)
  */
 function saveConfig(config) {
-  const yamlContent = YAML.stringify(config);
+  // Nettoyer les IDs avant de sauvegarder
+  const cleanConfig = {
+    ...config,
+    groups: config.groups.map(group => {
+      const { id, ...groupWithoutId } = group;
+      return {
+        ...groupWithoutId,
+        channels: group.channels ? group.channels.map(channel => {
+          const { id: channelId, ...channelWithoutId } = channel;
+          return channelWithoutId;
+        }) : []
+      };
+    })
+  };
+
+  const yamlContent = YAML.stringify(cleanConfig);
   writeFileSync(configPath, yamlContent, 'utf8');
 }
 
