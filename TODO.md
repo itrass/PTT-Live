@@ -171,7 +171,7 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] API POST /api/audio/device (sélection + config sample rate/buffer)
 - [x] Page admin : dropdown sélection carte son
 - [x] Page admin : affichage infos carte (entrées/sorties, sample rate)
-- [ ] Backend : reload bridge audio sans redémarrer serveur
+- [x] Backend : reload bridge audio sans redémarrer serveur
 
 #### Nommage des canaux
 - [ ] API PUT /api/audio/channels/names (sauvegarde noms canaux)
