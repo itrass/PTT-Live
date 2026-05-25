@@ -10,45 +10,15 @@ import { networkInterfaces } from 'os';
 import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
 import adminRouter, { registerUser, addLog } from './api/admin.js';
+import configManager from './config/ConfigManager.js';
+import audioBridgeManager from './bridge/AudioBridgeManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Chargement configuration
-const configPath = join(__dirname, 'config', 'config.yaml');
-const configFile = readFileSync(configPath, 'utf8');
-const config = YAML.parse(configFile);
+// Chargement configuration via ConfigManager
+const config = configManager.get();
 
-/**
- * Génère un ID slug à partir d'un nom
- * Ex: "Équipe Production" -> "equipe-production"
- */
-function slugify(text) {
-  return text
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Retire les accents
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w-]+/g, '')
-    .replace(/--+/g, '-');
-}
-
-// Générer les IDs pour les groupes et canaux s'ils n'existent pas
-config.groups = config.groups.map(group => {
-  if (!group.id) {
-    group.id = slugify(group.name);
-  }
-  if (group.channels) {
-    group.channels = group.channels.map(channel => {
-      if (!channel.id) {
-        channel.id = `${group.id}-${slugify(channel.name)}`;
-      }
-      return channel;
-    });
-  }
-  return group;
-});
+// Note: Les IDs sont maintenant générés automatiquement par le ConfigManager
 
 /**
  * Détecte l'IP réseau locale (WiFi/Ethernet)
@@ -388,6 +358,12 @@ async function start() {
       log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
     });
 
+    // 3. Démarrer Audio Bridge Manager (Phase 2.5)
+    log('info', '');
+    log('info', '🎵 Démarrage Audio Bridge Manager...');
+    await audioBridgeManager.start();
+    log('info', '✓ Audio Bridge Manager prêt (mode placeholder)');
+
     // Gérer erreur port déjà utilisé
     server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
@@ -407,8 +383,14 @@ async function start() {
 
 // ========== Cleanup ==========
 
-function cleanup() {
+async function cleanup() {
   log('info', 'Arrêt du serveur...');
+
+  // Arrêter l'audio bridge
+  if (audioBridgeManager) {
+    log('info', 'Arrêt Audio Bridge Manager...');
+    await audioBridgeManager.stop();
+  }
 
   if (livekitProcess) {
     log('info', 'Arrêt LiveKit Server...');

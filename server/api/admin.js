@@ -10,6 +10,7 @@ import YAML from 'yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { CoreAudioBackend } from '../bridge/backends/CoreAudioBackend.js';
+import configManager from '../config/ConfigManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -503,8 +504,8 @@ router.get('/audio/devices', (req, res) => {
  */
 router.get('/audio/device', (req, res) => {
   try {
-    const config = loadConfig();
-    const audioDevice = config.audio.device || {};
+    const config = configManager.get();
+    const audioDevice = config.audio?.device || {};
 
     res.json({
       device: audioDevice
@@ -524,31 +525,19 @@ router.post('/audio/device', (req, res) => {
   try {
     const { inputDeviceId, outputDeviceId, sampleRate, bufferSize } = req.body;
 
-    const config = loadConfig();
-
-    // Initialiser la section device si elle n'existe pas
-    if (!config.audio.device) {
-      config.audio.device = {};
-    }
-
-    // Mettre à jour les paramètres fournis
-    if (inputDeviceId !== undefined) config.audio.device.inputDeviceId = inputDeviceId;
-    if (outputDeviceId !== undefined) config.audio.device.outputDeviceId = outputDeviceId;
-    if (sampleRate !== undefined) {
-      config.audio.device.sampleRate = sampleRate;
-      config.audio.sampleRate = sampleRate; // Sync avec config globale
-    }
-    if (bufferSize !== undefined) config.audio.device.bufferSize = bufferSize;
-
-    saveConfig(config);
+    // Utiliser le ConfigManager pour mettre à jour et émettre l'événement
+    const deviceConfig = configManager.updateAudioDevice({
+      inputDeviceId,
+      outputDeviceId,
+      sampleRate,
+      bufferSize
+    });
 
     addLog('info', 'Audio device configured', { inputDeviceId, outputDeviceId, sampleRate, bufferSize });
 
-    // TODO Phase 2.5 : Émettre événement pour reload du bridge audio
-
     res.json({
-      message: 'Audio device configured',
-      device: config.audio.device
+      message: 'Audio device configured (bridge audio sera rechargé)',
+      device: deviceConfig
     });
 
   } catch (error) {
