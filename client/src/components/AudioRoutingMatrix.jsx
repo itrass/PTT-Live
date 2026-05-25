@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './AudioRoutingMatrix.css';
+import VUMeter from './VUMeter.jsx';
+import { useAudioLevels } from '../hooks/useAudioLevels.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function AudioRoutingMatrix({ groups, channelNames }) {
+  const { levels, connected: wsConnected } = useAudioLevels();
   const [routing, setRouting] = useState({ inputToGroup: {}, groupToOutput: {}, gains: {} });
   const [loading, setLoading] = useState(true);
   const [showOnlyNamedChannels, setShowOnlyNamedChannels] = useState(false);
@@ -165,7 +168,15 @@ function AudioRoutingMatrix({ groups, channelNames }) {
   return (
     <div className="routing-matrix-container">
       <div className="routing-matrix-header">
-        <h3>Matrice de routing audio</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <h3>Matrice de routing audio</h3>
+          <span
+            className={`ws-status ${wsConnected ? 'connected' : 'disconnected'}`}
+            title={wsConnected ? 'Monitoring temps réel actif' : 'Monitoring temps réel déconnecté'}
+          >
+            {wsConnected ? '● Live' : '○ Offline'}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input
@@ -199,7 +210,12 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           {getVisibleInputChannels().map(i => (
             <React.Fragment key={`input-row-${i}`}>
               <div className="matrix-label-cell">
-                {getChannelName('inputs', i)}
+                <div className="label-content">
+                  <span className="label-text">{getChannelName('inputs', i)}</span>
+                  {wsConnected && levels.inputs[i] && (
+                    <VUMeter level={levels.inputs[i]} size="mini" />
+                  )}
+                </div>
               </div>
 
               {groups.map(group => {
@@ -251,14 +267,24 @@ function AudioRoutingMatrix({ groups, channelNames }) {
 
           {getVisibleOutputChannels().map(i => (
             <div key={`output-header-${i}`} className="matrix-header-cell">
-              {getChannelName('outputs', i)}
+              <div className="header-content">
+                <span className="header-text">{getChannelName('outputs', i)}</span>
+                {wsConnected && levels.outputs[i] && (
+                  <VUMeter level={levels.outputs[i]} size="mini" />
+                )}
+              </div>
             </div>
           ))}
 
           {groups.map(group => (
             <React.Fragment key={`group-row-${group.id}`}>
               <div className="matrix-label-cell">
-                {group.name}
+                <div className="label-content">
+                  <span className="label-text">{group.name}</span>
+                  {wsConnected && levels.groups[group.id] && (
+                    <VUMeter level={levels.groups[group.id]} size="mini" />
+                  )}
+                </div>
               </div>
 
               {getVisibleOutputChannels().map(i => {

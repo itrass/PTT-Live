@@ -1,0 +1,131 @@
+/* VU-mètre version mini (pour matrice routing) */
+.vu-meter-mini {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.vu-meter-mini.clipping {
+  box-shadow: 0 0 4px rgba(255, 68, 68, 0.8);
+}
+
+.vu-meter-mini-bar {
+  height: 100%;
+  transition: width 50ms linear;
+  border-radius: 2px;
+}
+
+/* VU-mètre horizontal */
+.vu-meter-horizontal {
+  width: 100%;
+  height: 20px;
+  position: relative;
+}
+
+.vu-meter-horizontal.small {
+  height: 12px;
+}
+
+.vu-meter-horizontal.medium {
+  height: 20px;
+}
+
+.vu-meter-horizontal.large {
+  height: 30px;
+}
+
+.vu-meter-horizontal .vu-meter-bar-container {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.vu-meter-horizontal .vu-meter-bar-rms {
+  height: 100%;
+  transition: width 50ms linear;
+  border-radius: 4px;
+}
+
+.vu-meter-horizontal .vu-meter-bar-peak {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  transition: left 50ms linear;
+}
+
+.vu-meter-horizontal.clipping .vu-meter-bar-container {
+  box-shadow: 0 0 6px rgba(255, 68, 68, 0.8);
+  animation: clipping-pulse 200ms ease-in-out;
+}
+
+/* VU-mètre vertical */
+.vu-meter-vertical {
+  height: 100px;
+  width: 20px;
+  position: relative;
+}
+
+.vu-meter-vertical.small {
+  height: 60px;
+  width: 12px;
+}
+
+.vu-meter-vertical.medium {
+  height: 100px;
+  width: 20px;
+}
+
+.vu-meter-vertical.large {
+  height: 150px;
+  width: 30px;
+}
+
+.vu-meter-vertical .vu-meter-bar-container {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.vu-meter-vertical .vu-meter-bar-rms {
+  width: 100%;
+  transition: height 50ms linear;
+  border-radius: 4px;
+}
+
+.vu-meter-vertical .vu-meter-bar-peak {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  transition: bottom 50ms linear;
+}
+
+.vu-meter-vertical.clipping .vu-meter-bar-container {
+  box-shadow: 0 0 6px rgba(255, 68, 68, 0.8);
+  animation: clipping-pulse 200ms ease-in-out;
+}
+
+/* Animation clipping */
+@keyframes clipping-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(255, 68, 68, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 68, 68, 1);
+  }
+}

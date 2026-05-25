@@ -19,6 +19,24 @@
   font-weight: 600;
 }
 
+.ws-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.ws-status.connected {
+  color: #44ff44;
+  background: rgba(68, 255, 68, 0.1);
+}
+
+.ws-status.disconnected {
+  color: #888;
+  background: rgba(136, 136, 136, 0.1);
+}
+
 .routing-section {
   margin-bottom: var(--spacing-xl);
 }
@@ -80,6 +98,29 @@
   align-items: center;
   min-width: 120px;
   word-break: break-word;
+}
+
+.label-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.label-text {
+  flex: 1;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.header-text {
+  text-align: center;
 }
 
 .matrix-cell {
