@@ -598,11 +598,11 @@ router.get('/audio/routing', (req, res) => {
 });
 
 /**
- * POST /admin/audio/routing
+ * POST /audio/routing
  * Sauvegarde la configuration de routing
  * Body: { inputToGroup: {...}, groupToOutput: {...}, gains: {...} }
  */
-router.post('/admin/audio/routing', (req, res) => {
+router.post('/audio/routing', (req, res) => {
   try {
     const { inputToGroup, groupToOutput, gains } = req.body;
 
