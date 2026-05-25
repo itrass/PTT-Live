@@ -476,10 +476,15 @@ function Admin() {
                     .filter(d => d.maxInputChannels > 0)
                     .map(device => (
                       <option key={device.id} value={device.id}>
-                        {device.name} ({device.maxInputChannels} canaux, {device.defaultSampleRate}Hz)
+                        {device.name} - {device.maxInputChannels} canaux - {device.defaultSampleRate}Hz
                       </option>
                     ))}
                 </select>
+                {selectedInputDevice !== null && (
+                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>
+                    Device ID {selectedInputDevice} sélectionné
+                  </p>
+                )}
               </div>
 
               <div className="audio-section">
@@ -494,10 +499,15 @@ function Admin() {
                     .filter(d => d.maxOutputChannels > 0)
                     .map(device => (
                       <option key={device.id} value={device.id}>
-                        {device.name} ({device.maxOutputChannels} canaux, {device.defaultSampleRate}Hz)
+                        {device.name} - {device.maxOutputChannels} canaux - {device.defaultSampleRate}Hz
                       </option>
                     ))}
                 </select>
+                {selectedOutputDevice !== null && (
+                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>
+                    Device ID {selectedOutputDevice} sélectionné
+                  </p>
+                )}
               </div>
 
               <div className="audio-section">

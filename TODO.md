@@ -279,6 +279,8 @@ test: description      # Tests
 
 **IMPORTANT** : Commiter après chaque tâche complétée, pas à la fin de la journée !
 
+**IMPORTANT** : Interdiction d'utiliser des icônes et émojis.
+
 ---
 
 ## Notes et décisions
