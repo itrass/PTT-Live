@@ -174,11 +174,11 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] Backend : reload bridge audio sans redémarrer serveur
 
 #### Nommage des canaux
-- [ ] API PUT /api/audio/channels/names (sauvegarde noms canaux)
-- [ ] API GET /api/audio/channels/names (récupération noms)
-- [ ] Page admin : formulaire nommage canaux (inputs/outputs)
+- [x] API PUT /api/audio/channels/names (sauvegarde noms canaux)
+- [x] API GET /api/audio/channels/names (récupération noms)
+- [x] Page admin : formulaire nommage canaux (inputs/outputs)
 - [ ] Page admin : filtre "canaux nommés uniquement"
-- [ ] Sauvegarde automatique dans config.yaml
+- [x] Sauvegarde automatique dans config.yaml
 
 #### Matrice de routing (style Dante Controller)
 - [ ] API GET /api/audio/routing (récupération routing actuel)
