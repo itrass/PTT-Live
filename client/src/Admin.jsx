@@ -12,6 +12,13 @@ function Admin() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Audio devices (Phase 2.5)
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [currentDevice, setCurrentDevice] = useState(null);
+  const [selectedInputDevice, setSelectedInputDevice] = useState(null);
+  const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
+  const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
+
   // Gestion formulaire nouveau groupe
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
@@ -40,6 +47,8 @@ function Admin() {
         await loadStats();
       } else if (activeTab === 'logs') {
         await loadLogs();
+      } else if (activeTab === 'audio') {
+        await loadAudioDevices();
       }
 
       setError(null);
@@ -73,6 +82,24 @@ function Admin() {
     const res = await fetch(`${API_URL}/admin/logs?limit=50`);
     const data = await res.json();
     setLogs(data.logs || []);
+  };
+
+  const loadAudioDevices = async () => {
+    const [devicesRes, currentDeviceRes] = await Promise.all([
+      fetch(`${API_URL}/admin/audio/devices`),
+      fetch(`${API_URL}/admin/audio/device`)
+    ]);
+
+    const devicesData = await devicesRes.json();
+    const currentData = await currentDeviceRes.json();
+
+    setAudioDevices(devicesData.devices || []);
+    setCurrentDevice(currentData.device || {});
+
+    // Initialiser les sélections avec les valeurs actuelles
+    setSelectedInputDevice(currentData.device?.inputDeviceId ?? null);
+    setSelectedOutputDevice(currentData.device?.outputDeviceId ?? null);
+    setSelectedSampleRate(currentData.device?.sampleRate || 48000);
   };
 
   // ========== Gestion groupes ==========
@@ -192,6 +219,33 @@ function Admin() {
     setGroupForm({ ...groupForm, channels: newChannels });
   };
 
+  // ========== Gestion audio devices (Phase 2.5) ==========
+
+  const handleSaveAudioDevice = async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/audio/device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputDeviceId: selectedInputDevice !== null ? parseInt(selectedInputDevice) : undefined,
+          outputDeviceId: selectedOutputDevice !== null ? parseInt(selectedOutputDevice) : undefined,
+          sampleRate: parseInt(selectedSampleRate)
+        })
+      });
+
+      if (res.ok) {
+        alert('Configuration audio sauvegardée avec succès!');
+        await loadAudioDevices();
+      } else {
+        const error = await res.json();
+        alert(`Erreur: ${error.error}`);
+      }
+    } catch (err) {
+      console.error('Erreur sauvegarde configuration audio:', err);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
   // ========== Gestion utilisateurs ==========
 
   const handleDisconnectUser = async (identity) => {
@@ -242,6 +296,12 @@ function Admin() {
           onClick={() => setActiveTab('groups')}
         >
           Groupes
+        </button>
+        <button
+          className={activeTab === 'audio' ? 'active' : ''}
+          onClick={() => setActiveTab('audio')}
+        >
+          Audio
         </button>
         <button
           className={activeTab === 'users' ? 'active' : ''}
@@ -392,6 +452,111 @@ function Admin() {
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: Audio (Phase 2.5) */}
+        {activeTab === 'audio' && (
+          <div className="tab-audio">
+            <div className="tab-header">
+              <h2>Configuration audio</h2>
+            </div>
+
+            <div className="audio-config-container">
+              <div className="audio-section">
+                <h3>Carte son d'entrée (Input)</h3>
+                <select
+                  value={selectedInputDevice ?? ''}
+                  onChange={(e) => setSelectedInputDevice(e.target.value === '' ? null : parseInt(e.target.value))}
+                  className="device-select"
+                >
+                  <option value="">-- Sélectionner une carte --</option>
+                  {audioDevices
+                    .filter(d => d.maxInputChannels > 0)
+                    .map(device => (
+                      <option key={device.id} value={device.id}>
+                        {device.name} ({device.maxInputChannels} canaux, {device.defaultSampleRate}Hz)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="audio-section">
+                <h3>Carte son de sortie (Output)</h3>
+                <select
+                  value={selectedOutputDevice ?? ''}
+                  onChange={(e) => setSelectedOutputDevice(e.target.value === '' ? null : parseInt(e.target.value))}
+                  className="device-select"
+                >
+                  <option value="">-- Sélectionner une carte --</option>
+                  {audioDevices
+                    .filter(d => d.maxOutputChannels > 0)
+                    .map(device => (
+                      <option key={device.id} value={device.id}>
+                        {device.name} ({device.maxOutputChannels} canaux, {device.defaultSampleRate}Hz)
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="audio-section">
+                <h3>Sample Rate</h3>
+                <select
+                  value={selectedSampleRate}
+                  onChange={(e) => setSelectedSampleRate(parseInt(e.target.value))}
+                  className="device-select"
+                >
+                  <option value={44100}>44100 Hz (CD quality)</option>
+                  <option value={48000}>48000 Hz (Recommended)</option>
+                  <option value={96000}>96000 Hz (High quality)</option>
+                </select>
+              </div>
+
+              <div className="audio-actions">
+                <button onClick={handleSaveAudioDevice} className="btn-primary">
+                  Sauvegarder la configuration
+                </button>
+              </div>
+
+              {currentDevice && Object.keys(currentDevice).length > 0 && (
+                <div className="current-config">
+                  <h3>Configuration actuelle</h3>
+                  <div className="config-info">
+                    <p><strong>Input Device ID:</strong> {currentDevice.inputDeviceId ?? 'Non configuré'}</p>
+                    <p><strong>Output Device ID:</strong> {currentDevice.outputDeviceId ?? 'Non configuré'}</p>
+                    <p><strong>Sample Rate:</strong> {currentDevice.sampleRate ?? 48000} Hz</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="audio-devices-list">
+                <h3>Toutes les cartes son disponibles</h3>
+                <table className="devices-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Nom</th>
+                      <th>Entrées</th>
+                      <th>Sorties</th>
+                      <th>Sample Rate</th>
+                      <th>API</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {audioDevices.map(device => (
+                      <tr key={device.id}>
+                        <td>{device.id}</td>
+                        <td>{device.name}</td>
+                        <td>{device.maxInputChannels}</td>
+                        <td>{device.maxOutputChannels}</td>
+                        <td>{device.defaultSampleRate} Hz</td>
+                        <td>{device.hostAPIName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
