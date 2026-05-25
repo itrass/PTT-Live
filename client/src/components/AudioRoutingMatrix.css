@@ -1,0 +1,163 @@
+.routing-matrix-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: var(--spacing-xl);
+  margin-top: var(--spacing-lg);
+}
+
+.routing-matrix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.routing-matrix-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.routing-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.routing-section:last-child {
+  margin-bottom: 0;
+}
+
+.routing-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.routing-description {
+  margin: 0 0 var(--spacing-lg) 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.routing-matrix {
+  display: grid;
+  gap: 2px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.matrix-corner {
+  background: var(--color-surface-hover);
+}
+
+.matrix-header-row {
+  display: contents;
+}
+
+.matrix-header-cell {
+  background: var(--color-surface-hover);
+  padding: var(--spacing-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.matrix-row {
+  display: contents;
+}
+
+.matrix-label-cell {
+  background: var(--color-surface-hover);
+  padding: var(--spacing-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  min-width: 120px;
+  word-break: break-word;
+}
+
+.matrix-cell {
+  background: var(--color-bg);
+  padding: var(--spacing-md);
+  min-height: 40px;
+  min-width: 60px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.matrix-cell:hover {
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-primary);
+}
+
+.matrix-cell.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.matrix-cell.active:hover {
+  background: var(--color-primary-hover);
+}
+
+.checkmark {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+@media (max-width: 1024px) {
+  .matrix-header-cell,
+  .matrix-label-cell {
+    font-size: 0.75rem;
+    padding: var(--spacing-xs);
+    min-width: 80px;
+  }
+
+  .matrix-cell {
+    min-width: 50px;
+    min-height: 35px;
+    padding: var(--spacing-sm);
+  }
+}
+
+@media (max-width: 768px) {
+  .routing-matrix-container {
+    padding: var(--spacing-md);
+  }
+
+  .routing-matrix-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: stretch;
+  }
+
+  .matrix-header-cell,
+  .matrix-label-cell {
+    font-size: 0.7rem;
+    min-width: 60px;
+  }
+
+  .matrix-cell {
+    min-width: 40px;
+    min-height: 30px;
+  }
+
+  .checkmark {
+    font-size: 1rem;
+  }
+}

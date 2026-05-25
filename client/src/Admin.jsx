@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './Admin.css';
+import AudioRoutingMatrix from './components/AudioRoutingMatrix';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -641,6 +642,8 @@ function Admin() {
                   </div>
                 </div>
               </div>
+
+              <AudioRoutingMatrix groups={groups} channelNames={channelNames} />
 
               {currentDevice && Object.keys(currentDevice).length > 0 && (
                 <div className="current-config">
