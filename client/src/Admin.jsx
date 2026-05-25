@@ -19,6 +19,10 @@ function Admin() {
   const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
   const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
 
+  // Channel names (Phase 2.5)
+  const [channelNames, setChannelNames] = useState({ inputs: {}, outputs: {} });
+  const [editingChannelNames, setEditingChannelNames] = useState(false);
+
   // Gestion formulaire nouveau groupe
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
@@ -85,16 +89,19 @@ function Admin() {
   };
 
   const loadAudioDevices = async () => {
-    const [devicesRes, currentDeviceRes] = await Promise.all([
+    const [devicesRes, currentDeviceRes, channelNamesRes] = await Promise.all([
       fetch(`${API_URL}/admin/audio/devices`),
-      fetch(`${API_URL}/admin/audio/device`)
+      fetch(`${API_URL}/admin/audio/device`),
+      fetch(`${API_URL}/admin/audio/channels/names`)
     ]);
 
     const devicesData = await devicesRes.json();
     const currentData = await currentDeviceRes.json();
+    const channelNamesData = await channelNamesRes.json();
 
     setAudioDevices(devicesData.devices || []);
     setCurrentDevice(currentData.device || {});
+    setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
 
     // Initialiser les sélections avec les valeurs actuelles
     setSelectedInputDevice(currentData.device?.inputDeviceId ?? null);
@@ -220,6 +227,38 @@ function Admin() {
   };
 
   // ========== Gestion audio devices (Phase 2.5) ==========
+
+  const handleSaveChannelNames = async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/audio/channels/names`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(channelNames)
+      });
+
+      if (res.ok) {
+        alert('Noms de canaux sauvegardés avec succès!');
+        setEditingChannelNames(false);
+        await loadAudioDevices();
+      } else {
+        const error = await res.json();
+        alert(`Erreur: ${error.error}`);
+      }
+    } catch (err) {
+      console.error('Erreur sauvegarde noms canaux:', err);
+      alert('Erreur lors de la sauvegarde');
+    }
+  };
+
+  const updateChannelName = (type, channelId, name) => {
+    setChannelNames(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [channelId]: name
+      }
+    }));
+  };
 
   const handleSaveAudioDevice = async () => {
     try {
@@ -527,6 +566,80 @@ function Admin() {
                 <button onClick={handleSaveAudioDevice} className="btn-primary">
                   Sauvegarder la configuration
                 </button>
+              </div>
+
+              <div className="audio-section">
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)'}}>
+                  <h3>Nommage des canaux physiques</h3>
+                  {!editingChannelNames ? (
+                    <button onClick={() => setEditingChannelNames(true)} className="btn-secondary">
+                      Modifier les noms
+                    </button>
+                  ) : (
+                    <div style={{display: 'flex', gap: 'var(--spacing-sm)'}}>
+                      <button onClick={handleSaveChannelNames} className="btn-primary">
+                        Sauvegarder
+                      </button>
+                      <button onClick={() => { setEditingChannelNames(false); loadAudioDevices(); }} className="btn-secondary">
+                        Annuler
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)'}}>
+                  <div>
+                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>Entrées (Inputs)</h4>
+                    <div style={{display: 'grid', gap: 'var(--spacing-sm)'}}>
+                      {Array.from({length: 8}, (_, i) => (
+                        <div key={`input-${i}`} style={{display: 'grid', gridTemplateColumns: '40px 1fr', gap: 'var(--spacing-sm)', alignItems: 'center'}}>
+                          <span style={{color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>{i}</span>
+                          <input
+                            type="text"
+                            value={channelNames.inputs?.[i] || ''}
+                            onChange={(e) => updateChannelName('inputs', i, e.target.value)}
+                            placeholder={`Input ${i}`}
+                            disabled={!editingChannelNames}
+                            style={{
+                              padding: 'var(--spacing-sm)',
+                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: '6px',
+                              color: 'var(--color-text)',
+                              fontSize: '0.9rem'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>Sorties (Outputs)</h4>
+                    <div style={{display: 'grid', gap: 'var(--spacing-sm)'}}>
+                      {Array.from({length: 8}, (_, i) => (
+                        <div key={`output-${i}`} style={{display: 'grid', gridTemplateColumns: '40px 1fr', gap: 'var(--spacing-sm)', alignItems: 'center'}}>
+                          <span style={{color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>{i}</span>
+                          <input
+                            type="text"
+                            value={channelNames.outputs?.[i] || ''}
+                            onChange={(e) => updateChannelName('outputs', i, e.target.value)}
+                            placeholder={`Output ${i}`}
+                            disabled={!editingChannelNames}
+                            style={{
+                              padding: 'var(--spacing-sm)',
+                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: '6px',
+                              color: 'var(--color-text)',
+                              fontSize: '0.9rem'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {currentDevice && Object.keys(currentDevice).length > 0 && (

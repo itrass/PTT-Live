@@ -517,6 +517,68 @@ router.get('/audio/device', (req, res) => {
 });
 
 /**
+ * GET /admin/audio/channels/names
+ * Récupère les noms personnalisés des canaux physiques
+ */
+router.get('/audio/channels/names', (req, res) => {
+  try {
+    const config = configManager.get();
+    const channelNames = config.audio?.channelNames || { inputs: {}, outputs: {} };
+
+    res.json({
+      channelNames
+    });
+  } catch (error) {
+    console.error('Erreur GET /admin/audio/channels/names:', error);
+    res.status(500).json({ error: 'Failed to load channel names' });
+  }
+});
+
+/**
+ * PUT /admin/audio/channels/names
+ * Sauvegarde les noms personnalisés des canaux physiques
+ * Body: { inputs: { "0": "Micro Principal", ... }, outputs: { "0": "Retour Scène", ... } }
+ */
+router.put('/audio/channels/names', (req, res) => {
+  try {
+    const { inputs, outputs } = req.body;
+
+    if (!inputs && !outputs) {
+      return res.status(400).json({
+        error: 'Missing required fields: inputs or outputs'
+      });
+    }
+
+    const config = configManager.get();
+
+    if (!config.audio.channelNames) {
+      config.audio.channelNames = { inputs: {}, outputs: {} };
+    }
+
+    if (inputs) {
+      config.audio.channelNames.inputs = inputs;
+    }
+
+    if (outputs) {
+      config.audio.channelNames.outputs = outputs;
+    }
+
+    configManager.save(config);
+
+    addLog('info', 'Channel names updated', { inputCount: Object.keys(inputs || {}).length, outputCount: Object.keys(outputs || {}).length });
+
+    res.json({
+      message: 'Channel names updated',
+      channelNames: config.audio.channelNames
+    });
+
+  } catch (error) {
+    console.error('Erreur PUT /admin/audio/channels/names:', error);
+    res.status(500).json({ error: 'Failed to update channel names' });
+  }
+});
+
+/**
  * POST /admin/audio/device
  * Sélectionne et configure une carte son
  * Body: { inputDeviceId?, outputDeviceId?, sampleRate?, bufferSize? }
