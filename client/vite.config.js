@@ -73,7 +73,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/livekit': {
-        target: 'ws://10.1.1.111:7880',
+        target: 'ws://192.168.0.146:7880',
         ws: true,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/livekit/, '')
