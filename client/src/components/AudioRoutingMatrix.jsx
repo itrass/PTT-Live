@@ -119,20 +119,18 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           Sélectionnez quels inputs audio alimentent chaque groupe
         </p>
 
-        <div className="routing-matrix">
+        <div className="routing-matrix" style={{gridTemplateColumns: `120px repeat(${groups.length}, minmax(60px, 1fr))`}}>
           <div className="matrix-corner"></div>
 
-          <div className="matrix-header-row">
-            {groups.map(group => (
-              <div key={group.id} className="matrix-header-cell">
-                {group.name}
-              </div>
-            ))}
-          </div>
+          {groups.map(group => (
+            <div key={group.id} className="matrix-header-cell">
+              {group.name}
+            </div>
+          ))}
 
           {Array.from({length: 8}, (_, i) => (
-            <div key={`input-row-${i}`} className="matrix-row">
-              <div className="matrix-label-cell">
+            <>
+              <div key={`input-label-${i}`} className="matrix-label-cell">
                 {getChannelName('inputs', i)}
               </div>
 
@@ -145,7 +143,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                   {isInputRoutedToGroup(String(i), group.id) && <span className="checkmark">✓</span>}
                 </div>
               ))}
-            </div>
+            </>
           ))}
         </div>
       </div>
@@ -156,20 +154,18 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           Sélectionnez vers quels outputs chaque groupe envoie son audio
         </p>
 
-        <div className="routing-matrix">
+        <div className="routing-matrix" style={{gridTemplateColumns: '120px repeat(8, minmax(60px, 1fr))'}}>
           <div className="matrix-corner"></div>
 
-          <div className="matrix-header-row">
-            {Array.from({length: 8}, (_, i) => (
-              <div key={`output-header-${i}`} className="matrix-header-cell">
-                {getChannelName('outputs', i)}
-              </div>
-            ))}
-          </div>
+          {Array.from({length: 8}, (_, i) => (
+            <div key={`output-header-${i}`} className="matrix-header-cell">
+              {getChannelName('outputs', i)}
+            </div>
+          ))}
 
           {groups.map(group => (
-            <div key={`group-row-${group.id}`} className="matrix-row">
-              <div className="matrix-label-cell">
+            <>
+              <div key={`group-label-${group.id}`} className="matrix-label-cell">
                 {group.name}
               </div>
 
@@ -182,7 +178,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                   {isGroupRoutedToOutput(group.id, String(i)) && <span className="checkmark">✓</span>}
                 </div>
               ))}
-            </div>
+            </>
           ))}
         </div>
       </div>

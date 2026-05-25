@@ -41,20 +41,18 @@
 }
 
 .routing-matrix {
-  display: grid;
+  display: inline-grid;
   gap: 2px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  max-width: 100%;
 }
 
 .matrix-corner {
   background: var(--color-surface-hover);
-}
-
-.matrix-header-row {
-  display: contents;
+  min-height: 50px;
 }
 
 .matrix-header-cell {
@@ -70,10 +68,6 @@
   min-height: 50px;
   word-break: break-word;
   hyphens: auto;
-}
-
-.matrix-row {
-  display: contents;
 }
 
 .matrix-label-cell {
