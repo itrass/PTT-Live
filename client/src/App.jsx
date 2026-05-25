@@ -23,7 +23,8 @@ function App() {
     disconnect,
     switchGroup,
     startTalking,
-    stopTalking
+    stopTalking,
+    toggleParticipantMute
   } = useLiveKit();
 
   // Charger configuration au démarrage
@@ -91,8 +92,8 @@ function App() {
 
       console.log('🔗 Connexion LiveKit:', livekitUrl);
 
-      // Se connecter à LiveKit
-      await connect(livekitUrl, data.token);
+      // Se connecter à LiveKit avec les canaux virtuels
+      await connect(livekitUrl, data.token, data.virtualChannels || []);
 
     } catch (err) {
       console.error('Erreur connexion:', err);
@@ -136,8 +137,8 @@ function App() {
         livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
       }
 
-      // Changer de room LiveKit
-      await switchGroup(livekitUrl, data.token);
+      // Changer de room LiveKit avec les canaux virtuels du nouveau groupe
+      await switchGroup(livekitUrl, data.token, data.virtualChannels || []);
 
       // Mettre à jour l'état
       setGroupId(newGroupId);
@@ -238,7 +239,10 @@ function App() {
         />
 
         {/* Liste des participants */}
-        <UserList participants={participants} />
+        <UserList
+          participants={participants}
+          onToggleMute={toggleParticipantMute}
+        />
 
         {/* Bouton PTT principal avec VU-mètre intégré */}
         <PTTButton

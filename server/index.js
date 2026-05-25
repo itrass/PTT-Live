@@ -196,11 +196,7 @@ app.get('/config', (req, res) => {
     const clientConfig = {
       groups: config.groups.map(g => ({
         id: g.id,
-        name: g.name,
-        channels: g.channels.map(c => ({
-          id: c.id,
-          name: c.name
-        }))
+        name: g.name
       })),
       audio: {
         sampleRate: config.audio.sampleRate,
@@ -281,11 +277,30 @@ app.post('/token', async (req, res) => {
     // Enregistrer l'utilisateur dans le système admin
     registerUser(participantIdentity, username, groupId, roomName);
 
+    // Générer les canaux virtuels depuis le routing (inputs uniquement)
+    const virtualChannels = [];
+    const inputToGroup = config.audio?.routing?.inputToGroup || {};
+    const channelNames = config.audio?.channelNames?.inputs || {};
+
+    // Trouver tous les canaux physiques routés vers ce groupe
+    for (const [inputChannel, groups] of Object.entries(inputToGroup)) {
+      if (groups.includes(groupId)) {
+        const channelName = channelNames[inputChannel] || `Canal ${inputChannel}`;
+        virtualChannels.push({
+          id: `input-${inputChannel}`,
+          name: channelName,
+          isVirtual: true,
+          audioInput: parseInt(inputChannel, 10)
+        });
+      }
+    }
+
     res.json({
       token,
       url: LIVEKIT_URL,
       roomName,
-      participantIdentity
+      participantIdentity,
+      virtualChannels
     });
 
   } catch (error) {

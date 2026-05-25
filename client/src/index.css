@@ -13,6 +13,8 @@
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  --color-accent: #8b5cf6;
+  --color-error: #ef4444;
 
   /* PTT States */
   --color-ptt-idle: #374151;

@@ -84,6 +84,20 @@
   background: rgba(16, 185, 129, 0.1);
 }
 
+/* Canal virtuel */
+.user-item.virtual-channel {
+  border-left: 3px solid var(--color-accent);
+}
+
+.user-item.virtual-channel.muted {
+  opacity: 0.5;
+  border-left-color: var(--color-text-secondary);
+}
+
+.user-avatar.channel {
+  background: var(--color-accent);
+}
+
 /* Avatar */
 .user-avatar {
   width: 40px;
@@ -189,4 +203,45 @@
   .user-list {
     max-height: 120px;
   }
+}
+
+/* Bouton mute/unmute */
+.mute-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  color: var(--color-text-primary);
+}
+
+.mute-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.mute-button:active {
+  transform: scale(0.95);
+}
+
+.mute-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.user-item.muted .mute-button {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-error);
+}
+
+.channel-label {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  font-weight: 500;
 }

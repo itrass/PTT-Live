@@ -16,6 +16,8 @@ export default function useLiveKit() {
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
   const isAudioUnlockedRef = useRef(false);
+  const virtualChannelsRef = useRef([]);
+  const mutedChannelsRef = useRef(new Set()); // IDs des canaux muted
 
   // Analyseur audio pour pistes distantes (audio entrant)
   const remoteAudioContextRef = useRef(null);
@@ -25,8 +27,11 @@ export default function useLiveKit() {
   /**
    * Connexion à la room LiveKit
    */
-  const connect = useCallback(async (url, token) => {
+  const connect = useCallback(async (url, token, virtualChannels = []) => {
     try {
+      // Stocker les canaux virtuels
+      virtualChannelsRef.current = virtualChannels;
+
       // Créer room
       const room = new Room({
         adaptiveStream: true,
@@ -154,7 +159,7 @@ export default function useLiveKit() {
   /**
    * Changer de groupe (reconnexion à une nouvelle room)
    */
-  const switchGroup = useCallback(async (url, token) => {
+  const switchGroup = useCallback(async (url, token, virtualChannels = []) => {
     console.log('🔄 Changement de groupe...');
 
     // Déconnexion propre
@@ -167,8 +172,11 @@ export default function useLiveKit() {
     setIsConnected(false);
     setParticipants([]);
 
+    // Reset canaux muted
+    mutedChannelsRef.current.clear();
+
     // Reconnexion avec nouveau token
-    await connect(url, token);
+    await connect(url, token, virtualChannels);
   }, [connect]);
 
   /**
@@ -252,15 +260,30 @@ export default function useLiveKit() {
   }, []);
 
   /**
-   * Mise à jour liste participants
+   * Mise à jour liste participants (inclut canaux virtuels)
    */
-  const updateParticipants = () => {
+  const updateParticipants = useCallback(() => {
     if (!roomRef.current) return;
 
     const room = roomRef.current;
     const participantsList = [];
 
-    // Participants distants
+    // Canaux virtuels (affichés en premier)
+    virtualChannelsRef.current.forEach((channel) => {
+      participantsList.push({
+        identity: channel.id,
+        name: channel.name,
+        isLocal: false,
+        isVirtual: true,
+        isSpeaking: false, // TODO: détection audio depuis bridge
+        hasAudio: true,
+        isMuted: mutedChannelsRef.current.has(channel.id),
+        audioInput: channel.audioInput,
+        audioOutput: channel.audioOutput
+      });
+    });
+
+    // Participants distants (utilisateurs WebRTC)
     room.remoteParticipants.forEach((participant) => {
       const audioTracks = participant.audioTracks ? Array.from(participant.audioTracks.values()) : [];
       const audioPublication = audioTracks[0];
@@ -270,13 +293,63 @@ export default function useLiveKit() {
         identity: participant.identity,
         name: participant.name || participant.identity,
         isLocal: false,
+        isVirtual: false,
         isSpeaking,
-        hasAudio: audioPublication?.isSubscribed || false
+        hasAudio: audioPublication?.isSubscribed || false,
+        isMuted: false
       });
     });
 
     setParticipants(participantsList);
-  };
+  }, []);
+
+  /**
+   * Toggle mute/unmute d'un participant (canal virtuel ou utilisateur)
+   */
+  const toggleParticipantMute = useCallback((participantId, isVirtual) => {
+    if (isVirtual) {
+      // Canal virtuel : toggle dans l'état local
+      const isMuted = mutedChannelsRef.current.has(participantId);
+
+      if (isMuted) {
+        mutedChannelsRef.current.delete(participantId);
+        console.log('🔊 Canal virtuel unmuted:', participantId);
+      } else {
+        mutedChannelsRef.current.add(participantId);
+        console.log('🔇 Canal virtuel muted:', participantId);
+      }
+
+      // TODO Phase 3: Envoyer commande au bridge audio via DataChannel
+      // pour vraiment muter/unmuter le canal physique
+
+      // Mettre à jour l'affichage
+      updateParticipants();
+    } else {
+      // Utilisateur WebRTC : muter localement la lecture audio
+      if (!roomRef.current) return;
+
+      const participant = roomRef.current.remoteParticipants.get(participantId);
+      if (!participant) return;
+
+      const audioTracks = Array.from(participant.audioTracks.values());
+      const audioPublication = audioTracks[0];
+
+      if (audioPublication && audioPublication.audioTrack) {
+        const track = audioPublication.audioTrack;
+        const newMutedState = !track.isMuted;
+
+        if (newMutedState) {
+          track.mute();
+          console.log('🔇 Participant muted:', participantId);
+        } else {
+          track.unmute();
+          console.log('🔊 Participant unmuted:', participantId);
+        }
+
+        updateParticipants();
+      }
+    }
+  }, [updateParticipants]);
 
   /**
    * Setup analyseur audio pour VU-mètre (micro local)
@@ -412,6 +485,7 @@ export default function useLiveKit() {
     disconnect,
     switchGroup,
     startTalking,
-    stopTalking
+    stopTalking,
+    toggleParticipantMute
   };
 }

@@ -7,30 +7,36 @@ audio:
     inputDeviceId: 0
     outputDeviceId: 2
     sampleRate: 48000
+  routing:
+    inputToGroup:
+      "1":
+        - technique
+      "2":
+        - technique
+      "4":
+        - technique
+      "5":
+        - technique
+    groupToOutput: {}
+    gains: {}
+  channelNames:
+    inputs:
+      "0": "Micro Régisseur"
+      "1": "Talkback FOH"
+      "2": "Retour Console"
+      "3": "Liaison Scène"
+      "4": "Monitor Mix"
+      "5": "Spare 1"
+    outputs:
+      "0": "Sortie Principale"
+      "1": "Retour Scène"
+      "2": "Talkback Console"
 groups:
   - name: Production
     audioBitrate: 96
-    channels:
-      - name: Principal
-        audioInput: 0
-        audioOutput: 0
-      - name: Backup
-        audioInput: 1
-        audioOutput: 1
   - name: Technique
-    channels:
-      - name: Général
-        audioInput: 2
-        audioOutput: 2
   - name: Sonorisation
     audioBitrate: 128
-    channels:
-      - name: Principal
-        audioInput: 3
-        audioOutput: 3
-      - name: Retours
-        audioInput: 4
-        audioOutput: 4
 server:
   host: 0.0.0.0
   port: 3000
