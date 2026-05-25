@@ -6,6 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 function AudioRoutingMatrix({ groups, channelNames }) {
   const [routing, setRouting] = useState({ inputToGroup: {}, groupToOutput: {}, gains: {} });
   const [loading, setLoading] = useState(true);
+  const [showOnlyNamedChannels, setShowOnlyNamedChannels] = useState(false);
 
   useEffect(() => {
     loadRouting();
@@ -104,6 +105,26 @@ function AudioRoutingMatrix({ groups, channelNames }) {
     return name || `${type === 'inputs' ? 'Input' : 'Output'} ${id}`;
   };
 
+  const hasCustomName = (type, id) => {
+    return channelNames?.[type]?.[id] !== undefined;
+  };
+
+  const getVisibleInputChannels = () => {
+    const allInputs = Array.from({length: 8}, (_, i) => i);
+    if (showOnlyNamedChannels) {
+      return allInputs.filter(i => hasCustomName('inputs', i));
+    }
+    return allInputs;
+  };
+
+  const getVisibleOutputChannels = () => {
+    const allOutputs = Array.from({length: 8}, (_, i) => i);
+    if (showOnlyNamedChannels) {
+      return allOutputs.filter(i => hasCustomName('outputs', i));
+    }
+    return allOutputs;
+  };
+
   if (loading) {
     return <div style={{padding: 'var(--spacing-xl)', textAlign: 'center'}}>Chargement...</div>;
   }
@@ -112,9 +133,19 @@ function AudioRoutingMatrix({ groups, channelNames }) {
     <div className="routing-matrix-container">
       <div className="routing-matrix-header">
         <h3>Matrice de routing audio</h3>
-        <button onClick={saveRouting} className="btn-primary">
-          Sauvegarder le routing
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showOnlyNamedChannels}
+              onChange={(e) => setShowOnlyNamedChannels(e.target.checked)}
+            />
+            <span>Afficher uniquement les canaux nommés</span>
+          </label>
+          <button onClick={saveRouting} className="btn-primary">
+            Sauvegarder le routing
+          </button>
+        </div>
       </div>
 
       <div className="routing-section">
@@ -132,7 +163,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
             </div>
           ))}
 
-          {Array.from({length: 8}, (_, i) => (
+          {getVisibleInputChannels().map(i => (
             <React.Fragment key={`input-row-${i}`}>
               <div className="matrix-label-cell">
                 {getChannelName('inputs', i)}
@@ -158,10 +189,10 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           Sélectionnez vers quels outputs chaque groupe envoie son audio
         </p>
 
-        <div className="routing-matrix" style={{gridTemplateColumns: '120px repeat(8, minmax(60px, 1fr))'}}>
+        <div className="routing-matrix" style={{gridTemplateColumns: `120px repeat(${getVisibleOutputChannels().length}, minmax(60px, 1fr))`}}>
           <div className="matrix-corner"></div>
 
-          {Array.from({length: 8}, (_, i) => (
+          {getVisibleOutputChannels().map(i => (
             <div key={`output-header-${i}`} className="matrix-header-cell">
               {getChannelName('outputs', i)}
             </div>
@@ -173,7 +204,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                 {group.name}
               </div>
 
-              {Array.from({length: 8}, (_, i) => (
+              {getVisibleOutputChannels().map(i => (
                 <div
                   key={`${group.id}-${i}`}
                   className={`matrix-cell ${isGroupRoutedToOutput(group.id, String(i)) ? 'active' : ''}`}

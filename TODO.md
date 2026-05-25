@@ -177,7 +177,7 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] API PUT /api/audio/channels/names (sauvegarde noms canaux)
 - [x] API GET /api/audio/channels/names (récupération noms)
 - [x] Page admin : formulaire nommage canaux (inputs/outputs)
-- [ ] Page admin : filtre "canaux nommés uniquement"
+- [x] Page admin : filtre "canaux nommés uniquement"
 - [x] Sauvegarde automatique dans config.yaml
 
 #### Matrice de routing (style Dante Controller)
