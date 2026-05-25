@@ -156,7 +156,7 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ### 2.2 Modes PTT avancés
 - [x] Mode continu : toggle ON/OFF (appui long 3s)
 - [x] Vibration + indicateur visuel rouge (lock actif)
-- [ ] Préférences utilisateur (mode par défaut)
+- [x] Préférences utilisateur (mode par défaut)
 
 ### 2.3 Interface admin
 - [x] Page admin web (/admin)

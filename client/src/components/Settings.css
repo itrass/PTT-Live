@@ -1,0 +1,139 @@
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-md);
+}
+
+.settings-modal {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.settings-content {
+  padding: var(--spacing-lg);
+}
+
+.setting-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.setting-section:last-child {
+  margin-bottom: 0;
+}
+
+.setting-section h3 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.setting-description {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.radio-option,
+.checkbox-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: var(--spacing-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-option:hover,
+.checkbox-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary-color);
+}
+
+.radio-option:has(input:checked),
+.checkbox-option:has(input:checked) {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--primary-color);
+}
+
+.radio-option input[type="radio"],
+.checkbox-option input[type="checkbox"] {
+  margin-top: 0.25rem;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.radio-option div,
+.checkbox-option div {
+  flex: 1;
+}
+
+.radio-option strong,
+.checkbox-option strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.radio-option p,
+.checkbox-option p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.settings-footer {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-footer .btn-primary {
+  padding: var(--spacing-sm) var(--spacing-xl);
+}

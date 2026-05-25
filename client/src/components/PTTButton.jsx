@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import './PTTButton.css';
+import { loadSettings } from './Settings';
 
 /**
  * Bouton PTT principal
  * Gère touch et mouse events pour desktop et mobile
  * Modes :
  * - PTT classique : maintenir pour parler
- * - Mode continu (lock) : glisser vers le haut pendant qu'on parle
+ * - Mode continu (lock) : glisser vers le haut pendant qu'on parle OU mode par défaut
  * Inclut VU-mètre intégré (anneau autour du bouton)
  */
 export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLevel = 0 }) {
@@ -14,11 +15,22 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLe
   const isPressingRef = useRef(false);
   const [isLockMode, setIsLockMode] = useState(false);
   const isLockModeRef = useRef(false); // Ref pour accès immédiat dans event handlers
+  const [settings, setSettings] = useState(loadSettings());
 
   // Drag tracking
   const dragStartYRef = useRef(null);
   const currentYRef = useRef(null);
   const [dragOffset, setDragOffset] = useState(0); // Offset visuel du drag (en pixels)
+
+  // Initialiser le mode selon les préférences au démarrage
+  useEffect(() => {
+    const currentSettings = loadSettings();
+    if (currentSettings.defaultPTTMode === 'continuous') {
+      setIsLockMode(true);
+      isLockModeRef.current = true;
+      console.log('Mode continu activé par défaut (préférences)');
+    }
+  }, []);
 
   useEffect(() => {
     const button = buttonRef.current;
@@ -207,8 +219,8 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLe
 
     // Le micro est déjà actif (onPressStart a été appelé)
 
-    // Vibration pour feedback
-    if (navigator.vibrate) {
+    // Vibration pour feedback (si activé dans les paramètres)
+    if (settings.vibrationEnabled && navigator.vibrate) {
       navigator.vibrate([100, 50, 100]);
     }
   };
@@ -226,8 +238,8 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLe
       console.log('🔒 Mode lock ON');
       onPressStart();
 
-      // Vibration pour feedback
-      if (navigator.vibrate) {
+      // Vibration pour feedback (si activé dans les paramètres)
+      if (settings.vibrationEnabled && navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
       }
     } else {
@@ -235,8 +247,8 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLe
       console.log('🔓 Mode lock OFF');
       onPressEnd();
 
-      // Vibration pour feedback
-      if (navigator.vibrate) {
+      // Vibration pour feedback (si activé dans les paramètres)
+      if (settings.vibrationEnabled && navigator.vibrate) {
         navigator.vibrate(50);
       }
     }
