@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
-**Dernière mise à jour** : 2026-05-24
-**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (En cours - Phase 2.5 Configuration audio visuelle)
+**Dernière mise à jour** : 2026-05-25
+**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (Phase 2.5 TERMINÉE - Configuration audio visuelle complète)
 
 ---
 
@@ -186,18 +186,22 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] Component React : AudioRoutingMatrix.jsx
   - [x] Matrice inputs → groups (checkboxes)
   - [x] Matrice groups → outputs (checkboxes)
-  - [ ] Dropdowns gain par route (-12dB à +6dB) - Phase 3
-  - [ ] Indicateurs niveaux temps réel (WebSocket) - Phase 3
-- [ ] Backend : GroupAudioRouter.js (routing par groupe) - Phase 3
-  - [ ] Mix canaux physiques multiples → groupe
-  - [ ] Distribution groupe → canaux physiques multiples
-  - [ ] Gestion gains individuels
-  - [ ] Support canaux partagés (mixage additif)
+  - [x] Dropdowns gain par route (-12dB à +6dB)
+  - [x] Indicateurs niveaux temps réel (WebSocket)
+- [x] Backend : GroupAudioRouter.js (routing par groupe)
+  - [x] Mix canaux physiques multiples → groupe
+  - [x] Distribution groupe → canaux physiques multiples
+  - [x] Gestion gains individuels
+  - [x] Support canaux partagés (mixage additif)
 - [x] Backend : ConfigManager.js (lecture/écriture YAML)
   - [x] Méthodes update pour device/channels/routing
   - [x] Sauvegarde atomique avec backup auto
   - [x] Émission événement config-updated
-- [ ] WebSocket audio-levels (monitoring temps réel) - Phase 3
+- [x] WebSocket audio-levels (monitoring temps réel)
+  - [x] Server WebSocket AudioLevelsServer.js
+  - [x] Hook React useAudioLevels
+  - [x] Composant VUMeter (mini/horizontal/vertical)
+  - [x] Intégration VU-mètres dans matrice routing
 - [ ] Tests : routing multi-canaux, canaux partagés - Phase 3
 
 ### 2.4 Notifications
@@ -238,17 +242,18 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ## Prochaines actions immédiates
 
-### Phase 2 - Suite (PRIORITÉS)
+### Phase 2 - TERMINÉE
 1. ✅ Multi-groupes avec sélection dynamique (2.1)
 2. ✅ Mode PTT continu par appui long (2.2)
 3. ✅ Interface admin web (/admin) pour gestion groupes (2.3)
-4. 🎯 **Configuration audio visuelle (2.5)** ← PRIORITÉ ABSOLUE
-   - Détection/sélection carte son via interface admin
-   - Nommage canaux (inputs/outputs)
-   - Matrice routing style Dante Controller
-   - Sauvegarde automatique dans YAML
-5. ⏭️ Préférences utilisateur pour mode PTT par défaut (2.2)
-6. ⏭️ Web Push notifications pour appels privés (2.4)
+4. ✅ **Configuration audio visuelle (2.5)** - TERMINÉ
+   - ✅ Détection/sélection carte son via interface admin
+   - ✅ Nommage canaux (inputs/outputs)
+   - ✅ Matrice routing style Dante Controller avec gains
+   - ✅ VU-mètres temps réel WebSocket
+   - ✅ Sauvegarde automatique dans YAML
+5. ✅ Préférences utilisateur pour mode PTT par défaut (2.2)
+6. ✅ Web Push notifications pour appels privés (2.4)
 
 ### Phase 3 - Préparation
 - Support Linux (JACK/PipeWire backends)
