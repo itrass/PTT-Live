@@ -201,10 +201,10 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [ ] Tests : routing multi-canaux, canaux partagés - Phase 3
 
 ### 2.4 Notifications
-- [ ] Web Push : appels privés
-- [ ] Service Worker : gestion notifications
-- [ ] iOS : message onboarding "Installer sur écran d'accueil"
-- [ ] Permissions notification au premier lancement
+- [x] Web Push : appels privés (infrastructure prête)
+- [x] Service Worker : gestion notifications
+- [x] iOS : message onboarding "Installer sur écran d'accueil"
+- [x] Permissions notification au premier lancement
 
 ---
 

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import useLiveKit from './hooks/useLiveKit';
+import usePush from './hooks/usePush';
 import PTTButton from './components/PTTButton';
 import UserList from './components/UserList';
 import GroupSelector from './components/GroupSelector';
 import Settings from './components/Settings';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import './App.css';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -28,6 +30,13 @@ function App() {
     stopTalking,
     toggleParticipantMute
   } = useLiveKit();
+
+  const {
+    isSupported: isPushSupported,
+    isPermissionGranted: isPushGranted,
+    requestPermission: requestPushPermission,
+    showNotification
+  } = usePush();
 
   // Charger configuration au démarrage
   useEffect(() => {
@@ -60,6 +69,12 @@ function App() {
     setError(null);
 
     try {
+      // Demander permission notifications au premier lancement
+      if (isPushSupported && !isPushGranted) {
+        console.log('Demande permission notifications...');
+        await requestPushPermission();
+      }
+
       // IMPORTANT iOS : Demander permission microphone AVANT tout
       console.log('🎤 Demande permission microphone...');
       try {
@@ -268,6 +283,9 @@ function App() {
 
       {/* Modal de paramètres */}
       <Settings isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+      {/* Prompt installation PWA (iOS) */}
+      <PWAInstallPrompt />
     </div>
   );
 }

@@ -9,6 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
+      injectRegister: 'auto',
+      devOptions: {
+        enabled: true
+      },
       manifest: {
         name: 'PTT Live',
         short_name: 'PTT Live',
