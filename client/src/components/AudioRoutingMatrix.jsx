@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AudioRoutingMatrix.css';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function AudioRoutingMatrix({ groups, channelNames }) {
   const [routing, setRouting] = useState({ inputToGroup: {}, groupToOutput: {}, gains: {} });
@@ -14,6 +14,9 @@ function AudioRoutingMatrix({ groups, channelNames }) {
   const loadRouting = async () => {
     try {
       const res = await fetch(`${API_URL}/admin/audio/routing`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
       const data = await res.json();
       setRouting(data.routing || { inputToGroup: {}, groupToOutput: {}, gains: {} });
     } catch (error) {
@@ -34,8 +37,9 @@ function AudioRoutingMatrix({ groups, channelNames }) {
       if (res.ok) {
         alert('Configuration de routing sauvegardée!');
       } else {
-        const error = await res.json();
-        alert(`Erreur: ${error.error}`);
+        const errorText = await res.text();
+        console.error('Erreur serveur:', errorText);
+        alert(`Erreur: ${res.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('Erreur sauvegarde routing:', error);
@@ -129,8 +133,8 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           ))}
 
           {Array.from({length: 8}, (_, i) => (
-            <>
-              <div key={`input-label-${i}`} className="matrix-label-cell">
+            <React.Fragment key={`input-row-${i}`}>
+              <div className="matrix-label-cell">
                 {getChannelName('inputs', i)}
               </div>
 
@@ -143,7 +147,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                   {isInputRoutedToGroup(String(i), group.id) && <span className="checkmark">✓</span>}
                 </div>
               ))}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -164,8 +168,8 @@ function AudioRoutingMatrix({ groups, channelNames }) {
           ))}
 
           {groups.map(group => (
-            <>
-              <div key={`group-label-${group.id}`} className="matrix-label-cell">
+            <React.Fragment key={`group-row-${group.id}`}>
+              <div className="matrix-label-cell">
                 {group.name}
               </div>
 
@@ -178,7 +182,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                   {isGroupRoutedToOutput(group.id, String(i)) && <span className="checkmark">✓</span>}
                 </div>
               ))}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>
