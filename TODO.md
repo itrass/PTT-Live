@@ -167,10 +167,10 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 
 ### 2.5 Configuration audio visuelle (PRIORITÉ)
 #### Détection et sélection carte son
-- [ ] API GET /api/audio/devices (énumération cartes son CoreAudio/JACK)
-- [ ] API POST /api/audio/device (sélection + config sample rate/buffer)
-- [ ] Page admin : dropdown sélection carte son
-- [ ] Page admin : affichage infos carte (entrées/sorties, sample rate)
+- [x] API GET /api/audio/devices (énumération cartes son CoreAudio/JACK)
+- [x] API POST /api/audio/device (sélection + config sample rate/buffer)
+- [x] Page admin : dropdown sélection carte son
+- [x] Page admin : affichage infos carte (entrées/sorties, sample rate)
 - [ ] Backend : reload bridge audio sans redémarrer serveur
 
 #### Nommage des canaux
