@@ -100,6 +100,39 @@ function AudioRoutingMatrix({ groups, channelNames }) {
     return routing.groupToOutput[groupId]?.includes(outputId) || false;
   };
 
+  const getGainForInputToGroup = (inputId, groupId) => {
+    const key = `in_${inputId}_${groupId}`;
+    return routing.gains?.[key] || 0.0;
+  };
+
+  const getGainForGroupToOutput = (groupId, outputId) => {
+    const key = `${groupId}_out_${outputId}`;
+    return routing.gains?.[key] || 0.0;
+  };
+
+  const setGainForInputToGroup = (inputId, groupId, gainDb) => {
+    setRouting(prev => {
+      const gains = { ...prev.gains };
+      const key = `in_${inputId}_${groupId}`;
+      gains[key] = parseFloat(gainDb);
+      return { ...prev, gains };
+    });
+  };
+
+  const setGainForGroupToOutput = (groupId, outputId, gainDb) => {
+    setRouting(prev => {
+      const gains = { ...prev.gains };
+      const key = `${groupId}_out_${outputId}`;
+      gains[key] = parseFloat(gainDb);
+      return { ...prev, gains };
+    });
+  };
+
+  const formatGain = (gainDb) => {
+    if (gainDb === 0) return '0dB';
+    return gainDb > 0 ? `+${gainDb}dB` : `${gainDb}dB`;
+  };
+
   const getChannelName = (type, id) => {
     const name = channelNames?.[type]?.[id];
     return name || `${type === 'inputs' ? 'Input' : 'Output'} ${id}`;
@@ -169,15 +202,39 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                 {getChannelName('inputs', i)}
               </div>
 
-              {groups.map(group => (
-                <div
-                  key={`${i}-${group.id}`}
-                  className={`matrix-cell ${isInputRoutedToGroup(String(i), group.id) ? 'active' : ''}`}
-                  onClick={() => toggleInputToGroup(String(i), group.id)}
-                >
-                  {isInputRoutedToGroup(String(i), group.id) && <span className="checkmark">✓</span>}
-                </div>
-              ))}
+              {groups.map(group => {
+                const isRouted = isInputRoutedToGroup(String(i), group.id);
+                const gain = getGainForInputToGroup(String(i), group.id);
+
+                return (
+                  <div
+                    key={`${i}-${group.id}`}
+                    className={`matrix-cell ${isRouted ? 'active' : ''}`}
+                  >
+                    <div
+                      className="cell-checkbox"
+                      onClick={() => toggleInputToGroup(String(i), group.id)}
+                    >
+                      {isRouted && <span className="checkmark">✓</span>}
+                    </div>
+                    {isRouted && (
+                      <select
+                        className="gain-select"
+                        value={gain}
+                        onChange={(e) => setGainForInputToGroup(String(i), group.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="-12">-12dB</option>
+                        <option value="-6">-6dB</option>
+                        <option value="-3">-3dB</option>
+                        <option value="0">0dB</option>
+                        <option value="3">+3dB</option>
+                        <option value="6">+6dB</option>
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
             </React.Fragment>
           ))}
         </div>
@@ -204,15 +261,39 @@ function AudioRoutingMatrix({ groups, channelNames }) {
                 {group.name}
               </div>
 
-              {getVisibleOutputChannels().map(i => (
-                <div
-                  key={`${group.id}-${i}`}
-                  className={`matrix-cell ${isGroupRoutedToOutput(group.id, String(i)) ? 'active' : ''}`}
-                  onClick={() => toggleGroupToOutput(group.id, String(i))}
-                >
-                  {isGroupRoutedToOutput(group.id, String(i)) && <span className="checkmark">✓</span>}
-                </div>
-              ))}
+              {getVisibleOutputChannels().map(i => {
+                const isRouted = isGroupRoutedToOutput(group.id, String(i));
+                const gain = getGainForGroupToOutput(group.id, String(i));
+
+                return (
+                  <div
+                    key={`${group.id}-${i}`}
+                    className={`matrix-cell ${isRouted ? 'active' : ''}`}
+                  >
+                    <div
+                      className="cell-checkbox"
+                      onClick={() => toggleGroupToOutput(group.id, String(i))}
+                    >
+                      {isRouted && <span className="checkmark">✓</span>}
+                    </div>
+                    {isRouted && (
+                      <select
+                        className="gain-select"
+                        value={gain}
+                        onChange={(e) => setGainForGroupToOutput(group.id, String(i), e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="-12">-12dB</option>
+                        <option value="-6">-6dB</option>
+                        <option value="-3">-3dB</option>
+                        <option value="0">0dB</option>
+                        <option value="3">+3dB</option>
+                        <option value="6">+6dB</option>
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
             </React.Fragment>
           ))}
         </div>

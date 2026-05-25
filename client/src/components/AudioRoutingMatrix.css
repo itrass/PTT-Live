@@ -84,15 +84,25 @@
 
 .matrix-cell {
   background: var(--color-bg);
-  padding: var(--spacing-md);
-  min-height: 40px;
-  min-width: 60px;
-  cursor: pointer;
+  padding: var(--spacing-sm);
+  min-height: 60px;
+  min-width: 80px;
   transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  position: relative;
+}
+
+.cell-checkbox {
+  width: 100%;
+  min-height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  cursor: pointer;
 }
 
 .matrix-cell:hover {
@@ -114,6 +124,25 @@
   font-weight: bold;
 }
 
+.gain-select {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: center;
+}
+
+.gain-select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
 @media (max-width: 1024px) {
   .matrix-header-cell,
   .matrix-label-cell {
@@ -123,9 +152,14 @@
   }
 
   .matrix-cell {
-    min-width: 50px;
-    min-height: 35px;
+    min-width: 70px;
+    min-height: 50px;
     padding: var(--spacing-sm);
+  }
+
+  .gain-select {
+    font-size: 0.7rem;
+    padding: 3px 6px;
   }
 }
 
@@ -147,11 +181,16 @@
   }
 
   .matrix-cell {
-    min-width: 40px;
-    min-height: 30px;
+    min-width: 65px;
+    min-height: 45px;
   }
 
   .checkmark {
     font-size: 1rem;
+  }
+
+  .gain-select {
+    font-size: 0.65rem;
+    padding: 2px 4px;
   }
 }
