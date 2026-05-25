@@ -181,24 +181,24 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [x] Sauvegarde automatique dans config.yaml
 
 #### Matrice de routing (style Dante Controller)
-- [ ] API GET /api/audio/routing (récupération routing actuel)
-- [ ] API POST /api/audio/routing (sauvegarde routing)
-- [ ] Component React : AudioRoutingMatrix.jsx
-  - [ ] Matrice inputs → groups (checkboxes)
-  - [ ] Matrice groups → outputs (checkboxes)
-  - [ ] Dropdowns gain par route (-12dB à +6dB)
-  - [ ] Indicateurs niveaux temps réel (WebSocket)
-- [ ] Backend : GroupAudioRouter.js (routing par groupe)
+- [x] API GET /api/audio/routing (récupération routing actuel)
+- [x] API POST /api/audio/routing (sauvegarde routing)
+- [x] Component React : AudioRoutingMatrix.jsx
+  - [x] Matrice inputs → groups (checkboxes)
+  - [x] Matrice groups → outputs (checkboxes)
+  - [ ] Dropdowns gain par route (-12dB à +6dB) - Phase 3
+  - [ ] Indicateurs niveaux temps réel (WebSocket) - Phase 3
+- [ ] Backend : GroupAudioRouter.js (routing par groupe) - Phase 3
   - [ ] Mix canaux physiques multiples → groupe
   - [ ] Distribution groupe → canaux physiques multiples
   - [ ] Gestion gains individuels
   - [ ] Support canaux partagés (mixage additif)
-- [ ] Backend : ConfigManager.js (lecture/écriture YAML)
-  - [ ] Méthodes update pour device/channels/routing
-  - [ ] Sauvegarde atomique avec backup auto
-  - [ ] Émission événement config-updated
-- [ ] WebSocket audio-levels (monitoring temps réel)
-- [ ] Tests : routing multi-canaux, canaux partagés
+- [x] Backend : ConfigManager.js (lecture/écriture YAML)
+  - [x] Méthodes update pour device/channels/routing
+  - [x] Sauvegarde atomique avec backup auto
+  - [x] Émission événement config-updated
+- [ ] WebSocket audio-levels (monitoring temps réel) - Phase 3
+- [ ] Tests : routing multi-canaux, canaux partagés - Phase 3
 
 ### 2.4 Notifications
 - [ ] Web Push : appels privés
