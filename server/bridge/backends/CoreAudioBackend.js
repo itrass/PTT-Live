@@ -41,15 +41,48 @@ export class CoreAudioBackend extends EventEmitter {
    */
   static getDevices() {
     try {
-      const devices = portAudio.getDevices();
-      return devices.map((device, index) => ({
-        id: index,
-        name: device.name,
-        maxInputChannels: device.maxInputChannels,
-        maxOutputChannels: device.maxOutputChannels,
-        defaultSampleRate: device.defaultSampleRate,
-        hostAPIName: device.hostAPIName
-      }));
+      // WORKAROUND: naudiodon a un bug connu qui cause un segfault
+      // On retourne des devices fictifs pour le développement
+      // TODO: Remplacer par un backend plus stable (node-portaudio ou JACK)
+      console.warn('⚠️  CoreAudio.getDevices(): utilisation de devices fictifs (naudiodon instable)');
+
+      return [
+        {
+          id: 0,
+          name: 'MacBook Pro Microphone',
+          maxInputChannels: 1,
+          maxOutputChannels: 0,
+          defaultSampleRate: 48000,
+          hostAPIName: 'Core Audio'
+        },
+        {
+          id: 1,
+          name: 'MacBook Pro Speakers',
+          maxInputChannels: 0,
+          maxOutputChannels: 2,
+          defaultSampleRate: 48000,
+          hostAPIName: 'Core Audio'
+        },
+        {
+          id: 2,
+          name: 'External Audio Interface',
+          maxInputChannels: 8,
+          maxOutputChannels: 8,
+          defaultSampleRate: 48000,
+          hostAPIName: 'Core Audio'
+        }
+      ];
+
+      // Code original (commenté à cause du segfault)
+      // const devices = portAudio.getDevices();
+      // return devices.map((device, index) => ({
+      //   id: index,
+      //   name: device.name,
+      //   maxInputChannels: device.maxInputChannels,
+      //   maxOutputChannels: device.maxOutputChannels,
+      //   defaultSampleRate: device.defaultSampleRate,
+      //   hostAPIName: device.hostAPIName
+      // }));
     } catch (error) {
       console.error('Erreur énumération devices CoreAudio:', error);
       return [];

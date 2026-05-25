@@ -9,6 +9,7 @@ import { join } from 'path';
 import YAML from 'yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { CoreAudioBackend } from '../bridge/backends/CoreAudioBackend.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -470,6 +471,89 @@ router.put('/config/audio', (req, res) => {
   } catch (error) {
     console.error('Erreur PUT /admin/config/audio:', error);
     res.status(500).json({ error: 'Failed to update audio config' });
+  }
+});
+
+// ========== Routes Audio Devices (Phase 2.5) ==========
+
+/**
+ * GET /admin/audio/devices
+ * Énumération de toutes les cartes son disponibles
+ */
+router.get('/audio/devices', (req, res) => {
+  try {
+    const devices = CoreAudioBackend.getDevices();
+    const defaultInput = CoreAudioBackend.getDefaultInputDevice();
+    const defaultOutput = CoreAudioBackend.getDefaultOutputDevice();
+
+    res.json({
+      devices,
+      defaultInput,
+      defaultOutput
+    });
+  } catch (error) {
+    console.error('Erreur GET /admin/audio/devices:', error);
+    res.status(500).json({ error: 'Failed to enumerate audio devices' });
+  }
+});
+
+/**
+ * GET /admin/audio/device
+ * Récupère la configuration actuelle de la carte son sélectionnée
+ */
+router.get('/audio/device', (req, res) => {
+  try {
+    const config = loadConfig();
+    const audioDevice = config.audio.device || {};
+
+    res.json({
+      device: audioDevice
+    });
+  } catch (error) {
+    console.error('Erreur GET /admin/audio/device:', error);
+    res.status(500).json({ error: 'Failed to load audio device config' });
+  }
+});
+
+/**
+ * POST /admin/audio/device
+ * Sélectionne et configure une carte son
+ * Body: { inputDeviceId?, outputDeviceId?, sampleRate?, bufferSize? }
+ */
+router.post('/audio/device', (req, res) => {
+  try {
+    const { inputDeviceId, outputDeviceId, sampleRate, bufferSize } = req.body;
+
+    const config = loadConfig();
+
+    // Initialiser la section device si elle n'existe pas
+    if (!config.audio.device) {
+      config.audio.device = {};
+    }
+
+    // Mettre à jour les paramètres fournis
+    if (inputDeviceId !== undefined) config.audio.device.inputDeviceId = inputDeviceId;
+    if (outputDeviceId !== undefined) config.audio.device.outputDeviceId = outputDeviceId;
+    if (sampleRate !== undefined) {
+      config.audio.device.sampleRate = sampleRate;
+      config.audio.sampleRate = sampleRate; // Sync avec config globale
+    }
+    if (bufferSize !== undefined) config.audio.device.bufferSize = bufferSize;
+
+    saveConfig(config);
+
+    addLog('info', 'Audio device configured', { inputDeviceId, outputDeviceId, sampleRate, bufferSize });
+
+    // TODO Phase 2.5 : Émettre événement pour reload du bridge audio
+
+    res.json({
+      message: 'Audio device configured',
+      device: config.audio.device
+    });
+
+  } catch (error) {
+    console.error('Erreur POST /admin/audio/device:', error);
+    res.status(500).json({ error: 'Failed to configure audio device' });
   }
 });
 
