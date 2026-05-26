@@ -12,6 +12,7 @@ import { AccessToken } from 'livekit-server-sdk';
 import adminRouter, { registerUser, addLog } from './api/admin.js';
 import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
+import AudioLevelsServer from './websocket/AudioLevelsServer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -372,6 +373,11 @@ async function start() {
       log('info', 'Serveur prêt !');
       log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
     });
+
+    // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
+    const audioLevelsServer = new AudioLevelsServer({ server });
+    audioLevelsServer.start();
+    log('info', `✓ WebSocket Audio Levels démarré sur ws://${SERVER_HOST}:${SERVER_PORT}`);
 
     // 3. Démarrer Audio Bridge Manager (Phase 2.5)
     log('info', '');

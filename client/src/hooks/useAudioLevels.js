@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const WS_URL = import.meta.env.VITE_WS_AUDIO_LEVELS_URL || 'ws://localhost:3001';
+const WS_URL = import.meta.env.VITE_WS_AUDIO_LEVELS_URL || 'ws://localhost:3000';
 
 /**
  * Hook pour monitoring des niveaux audio temps réel
