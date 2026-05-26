@@ -4,7 +4,7 @@ audio:
   defaultBitrate: 96
   jitterBufferMs: 40
   device:
-    inputDeviceId: 0
+    inputDeviceId: 1
     outputDeviceId: 2
     sampleRate: 48000
   routing:
@@ -21,22 +21,25 @@ audio:
     gains: {}
   channelNames:
     inputs:
-      "0": "Micro Régisseur"
-      "1": "Talkback FOH"
-      "2": "Retour Console"
-      "3": "Liaison Scène"
-      "4": "Monitor Mix"
-      "5": "Spare 1"
+      "0": Micro Régisseur
+      "1": Talkback FOH
+      "2": Retour Console
+      "3": Liaison Scène
+      "4": Monitor Mix
+      "5": Spare 1
     outputs:
-      "0": "Sortie Principale"
-      "1": "Retour Scène"
-      "2": "Talkback Console"
+      "0": Sortie Principale
+      "1": Retour Scène
+      "2": Talkback Console
 groups:
   - name: Production
     audioBitrate: 96
+    channels: []
   - name: Technique
+    channels: []
   - name: Sonorisation
     audioBitrate: 128
+    channels: []
 server:
   host: 0.0.0.0
   port: 3000

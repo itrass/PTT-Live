@@ -140,8 +140,17 @@ export class CoreAudioBackend extends EventEmitter {
    * @returns {Object|null} Device d'entrée par défaut
    */
   static getDefaultInputDevice() {
-    const devices = this.getDevices();
-    return devices.find(d => d.maxInputChannels > 0) || null;
+    try {
+      const devices = this.getDevices();
+      // Chercher d'abord le device marqué comme default
+      const defaultDevice = devices.find(d => d.isDefault?.input && d.maxInputChannels > 0);
+      if (defaultDevice) return defaultDevice;
+      // Fallback: premier device avec input
+      return devices.find(d => d.maxInputChannels > 0) || null;
+    } catch (error) {
+      console.error('Erreur getDefaultInputDevice:', error);
+      return null;
+    }
   }
 
   /**
@@ -149,8 +158,17 @@ export class CoreAudioBackend extends EventEmitter {
    * @returns {Object|null} Device de sortie par défaut
    */
   static getDefaultOutputDevice() {
-    const devices = this.getDevices();
-    return devices.find(d => d.maxOutputChannels > 0) || null;
+    try {
+      const devices = this.getDevices();
+      // Chercher d'abord le device marqué comme default
+      const defaultDevice = devices.find(d => d.isDefault?.output && d.maxOutputChannels > 0);
+      if (defaultDevice) return defaultDevice;
+      // Fallback: premier device avec output
+      return devices.find(d => d.maxOutputChannels > 0) || null;
+    } catch (error) {
+      console.error('Erreur getDefaultOutputDevice:', error);
+      return null;
+    }
   }
 
   /**
