@@ -31,18 +31,35 @@ class AudioBridgeManager extends EventEmitter {
       const config = configManager.get();
       console.log('🎵 Démarrage AudioBridge avec configuration:', config.audio);
 
-      // TODO Phase 3: Implémenter le vrai bridge audio
-      // const AudioBridge = await import('./AudioBridge.js');
-      // this.bridge = new AudioBridge(config.audio);
-      // await this.bridge.start();
+      // Import dynamique du AudioBridge
+      const { AudioBridge } = await import('./AudioBridge.js');
+
+      // Créer l'instance avec la config
+      this.bridge = new AudioBridge({
+        ...config.audio,
+        // Options LiveKit
+        liveKitUrl: config.server?.livekit?.url || 'ws://localhost:7880',
+        liveKitToken: null, // Le bridge serveur n'a pas besoin de token pour l'instant
+        roomName: 'main',
+        // Options de routing
+        routing: config.audio?.routing || {},
+        groups: config.groups || [],
+        maxInputChannels: 32,
+        maxOutputChannels: 32
+      });
+
+      // Démarrer le bridge
+      await this.bridge.start();
 
       this.isRunning = true;
-      console.log('✓ AudioBridge démarré (mode placeholder)');
+      console.log('✓ AudioBridge démarré avec succès');
 
       this.emit('started');
     } catch (error) {
       console.error('❌ Erreur démarrage AudioBridge:', error);
-      throw error;
+      // Ne pas throw pour éviter de bloquer le serveur si pas de carte son
+      console.warn('⚠️  Le serveur continue sans AudioBridge actif');
+      this.isRunning = false;
     }
   }
 
@@ -57,11 +74,10 @@ class AudioBridgeManager extends EventEmitter {
     try {
       console.log('⏹  Arrêt AudioBridge...');
 
-      // TODO Phase 3: Arrêter le vrai bridge
-      // if (this.bridge) {
-      //   await this.bridge.stop();
-      //   this.bridge = null;
-      // }
+      if (this.bridge) {
+        await this.bridge.stop();
+        this.bridge = null;
+      }
 
       this.isRunning = false;
       console.log('✓ AudioBridge arrêté');
