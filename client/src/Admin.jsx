@@ -19,6 +19,7 @@ function Admin() {
   const [selectedInputDevice, setSelectedInputDevice] = useState(null);
   const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
   const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
+  const [isEditingAudio, setIsEditingAudio] = useState(false);
 
   // Channel names (Phase 2.5)
   const [channelNames, setChannelNames] = useState({ inputs: {}, outputs: {} });
@@ -104,10 +105,12 @@ function Admin() {
     setCurrentDevice(currentData.device || {});
     setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
 
-    // Initialiser les sélections avec les valeurs actuelles
-    setSelectedInputDevice(currentData.device?.inputDeviceId ?? null);
-    setSelectedOutputDevice(currentData.device?.outputDeviceId ?? null);
-    setSelectedSampleRate(currentData.device?.sampleRate || 48000);
+    // Ne réinitialiser les sélections que si l'utilisateur n'est pas en train d'éditer
+    if (!isEditingAudio) {
+      setSelectedInputDevice(currentData.device?.inputDeviceId ?? null);
+      setSelectedOutputDevice(currentData.device?.outputDeviceId ?? null);
+      setSelectedSampleRate(currentData.device?.sampleRate || 48000);
+    }
   };
 
   // ========== Gestion groupes ==========
@@ -274,6 +277,7 @@ function Admin() {
       });
 
       if (res.ok) {
+        setIsEditingAudio(false); // Désactiver le mode édition
         alert('Configuration audio sauvegardée avec succès!');
         await loadAudioDevices();
       } else {
@@ -508,7 +512,10 @@ function Admin() {
                 <h3>Carte son d'entrée (Input)</h3>
                 <select
                   value={selectedInputDevice ?? ''}
-                  onChange={(e) => setSelectedInputDevice(e.target.value === '' ? null : parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setIsEditingAudio(true);
+                    setSelectedInputDevice(e.target.value === '' ? null : parseInt(e.target.value));
+                  }}
                   className="device-select"
                 >
                   <option value="">-- Sélectionner une carte --</option>
@@ -531,7 +538,10 @@ function Admin() {
                 <h3>Carte son de sortie (Output)</h3>
                 <select
                   value={selectedOutputDevice ?? ''}
-                  onChange={(e) => setSelectedOutputDevice(e.target.value === '' ? null : parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setIsEditingAudio(true);
+                    setSelectedOutputDevice(e.target.value === '' ? null : parseInt(e.target.value));
+                  }}
                   className="device-select"
                 >
                   <option value="">-- Sélectionner une carte --</option>
@@ -554,7 +564,10 @@ function Admin() {
                 <h3>Sample Rate</h3>
                 <select
                   value={selectedSampleRate}
-                  onChange={(e) => setSelectedSampleRate(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setIsEditingAudio(true);
+                    setSelectedSampleRate(parseInt(e.target.value));
+                  }}
                   className="device-select"
                 >
                   <option value={44100}>44100 Hz (CD quality)</option>
