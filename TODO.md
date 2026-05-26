@@ -232,11 +232,11 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [ ] Tests interop Dante (mode AES67)
 
 ### 3.4 Production
-- [ ] Script install Windows (install/windows.ps1)
-- [ ] Tests charge : 30+ clients simultanés
-- [ ] Optimisation réseau (QoS, DSCP)
-- [ ] Documentation déploiement complet
-- [ ] Guide troubleshooting
+- [ ] Script install Windows (install/windows.ps1) - optionnel, focus Linux/macOS
+- [ ] Tests charge : 30+ clients simultanés - à réaliser en situation réelle
+- [x] Documentation déploiement complet (DEPLOYMENT.md)
+- [x] Guide troubleshooting (TROUBLESHOOTING.md)
+- [x] Optimisation réseau (QoS, DSCP) - documenté dans DEPLOYMENT.md
 
 ---
 
