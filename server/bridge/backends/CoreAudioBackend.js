@@ -282,6 +282,16 @@ export class CoreAudioBackend extends EventEmitter {
 
       this.playbackProcess = spawn('sox', args);
 
+      // Gérer l'erreur EPIPE sur stdin (si processus se ferme)
+      this.playbackProcess.stdin.on('error', (error) => {
+        if (error.code === 'EPIPE') {
+          console.warn('⚠️  Sox playback stdin fermé (EPIPE)');
+          this.isPlaying = false;
+        } else {
+          console.error('Erreur stdin sox playback:', error);
+        }
+      });
+
       this.playbackProcess.stderr.on('data', (data) => {
         const msg = data.toString();
         if (!msg.includes('sox WARN')) {
@@ -347,22 +357,32 @@ export class CoreAudioBackend extends EventEmitter {
    */
   _startPlaybackLoop() {
     const playNextChunk = () => {
-      if (!this.isPlaying || !this.playbackProcess) return;
+      if (!this.isPlaying || !this.playbackProcess || !this.playbackProcess.stdin) {
+        return;
+      }
 
       if (this.playbackBuffer.length > 0) {
         const chunk = this.playbackBuffer.shift();
         try {
-          this.playbackProcess.stdin.write(chunk);
+          if (this.playbackProcess.stdin.writable) {
+            this.playbackProcess.stdin.write(chunk);
+          }
         } catch (error) {
           console.error('Erreur écriture stdin sox:', error);
+          this.isPlaying = false;
+          return;
         }
       } else {
         // Buffer vide : underrun (silence)
         const silenceBuffer = Buffer.alloc(this.options.framesPerBuffer * 2 * this.options.channels);
         try {
-          this.playbackProcess.stdin.write(silenceBuffer);
+          if (this.playbackProcess.stdin.writable) {
+            this.playbackProcess.stdin.write(silenceBuffer);
+          }
         } catch (error) {
           // Ignore si process fermé
+          this.isPlaying = false;
+          return;
         }
         this.emit('bufferUnderrun');
       }

@@ -5,7 +5,7 @@ audio:
   jitterBufferMs: 40
   device:
     inputDeviceId: 1
-    outputDeviceId: 2
+    outputDeviceId: 0
     sampleRate: 48000
   routing:
     inputToGroup:
