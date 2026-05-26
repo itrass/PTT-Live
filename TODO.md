@@ -255,14 +255,17 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 5. ✅ Préférences utilisateur pour mode PTT par défaut (2.2)
 6. ✅ Web Push notifications pour appels privés (2.4)
 
-### Phase 3 - EN COURS
-1. ✅ Backend JACK pour Linux (3.1)
+### Phase 3 - COMPLETEE (documentation et backends)
+1. ✅ Backend JACK pour Linux professionnel (3.1)
 2. ✅ Backend PipeWire pour Linux moderne (3.1)
-3. ✅ Détection automatique backend Linux dans AudioBridge (3.1)
-4. ✅ Script d'installation Linux (Ubuntu/Debian/Arch) (3.1)
-5. ⏳ Tests sur Ubuntu 22.04 LTS et Arch Linux (3.1)
-6. Documentation setup Dante/AES67 (3.2/3.3)
-7. Tests charge 30+ clients (3.4)
+3. ✅ Détection automatique backend dans AudioBridge (3.1)
+4. ✅ Script installation Linux multi-distros (3.1)
+5. ✅ Documentation complete Dante + routing JACK (3.2)
+6. ✅ Documentation complete AES67 + PTP sync (3.3)
+7. ✅ Guide deploiement production 30+ clients (3.4)
+8. ✅ Guide troubleshooting complet (3.4)
+9. ⏳ Tests pratiques sur Ubuntu 22.04 LTS (3.1) - a realiser
+10. ⏳ Tests charge 30+ clients reel (3.4) - a realiser en evenement
 
 ---
 
