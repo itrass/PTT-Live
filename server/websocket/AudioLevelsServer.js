@@ -56,6 +56,7 @@ export class AudioLevelsServer extends EventEmitter {
 
     this.options = {
       port: options.port || 3001,
+      server: options.server || null, // Serveur HTTP existant
       updateRateMs: options.updateRateMs || 50, // 20 fois/sec
       ...options
     };
@@ -89,7 +90,13 @@ export class AudioLevelsServer extends EventEmitter {
   start() {
     return new Promise((resolve, reject) => {
       try {
-        this.wss = new WebSocketServer({ port: this.options.port });
+        // Si un serveur HTTP est fourni, utiliser le même port (upgrade HTTP → WebSocket)
+        // Sinon, créer un serveur WebSocket standalone sur son propre port
+        const wsOptions = this.options.server
+          ? { server: this.options.server, path: '/audio-levels' }
+          : { port: this.options.port };
+
+        this.wss = new WebSocketServer(wsOptions);
 
         this.wss.on('connection', (ws, req) => {
           this._handleNewConnection(ws, req);
@@ -104,7 +111,12 @@ export class AudioLevelsServer extends EventEmitter {
         // Démarrage du broadcast périodique
         this._startBroadcast();
 
-        console.log(`WebSocket AudioLevels démarré sur ws://localhost:${this.options.port}`);
+        if (this.options.server) {
+          console.log(`WebSocket AudioLevels démarré sur path /audio-levels (même port que HTTP)`);
+        } else {
+          console.log(`WebSocket AudioLevels démarré sur ws://localhost:${this.options.port}`);
+        }
+
         this.emit('started');
         resolve();
       } catch (error) {
