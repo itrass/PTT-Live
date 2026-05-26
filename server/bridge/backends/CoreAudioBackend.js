@@ -1,15 +1,18 @@
 /**
  * CoreAudioBackend.js
- * Backend audio natif macOS utilisant naudiodon (bindings PortAudio/CoreAudio)
+ * Backend audio natif macOS utilisant sox (Sound eXchange)
+ *
+ * Note: naudiodon était instable (segfaults), remplacé par sox en subprocess
+ * sox est stable, installé par défaut sur macOS, et supporte toutes les cartes
  *
  * Gère :
- * - Énumération des devices audio
- * - Capture audio (microphone/carte son)
- * - Lecture audio (speakers/sortie audio)
+ * - Énumération des devices audio via system_profiler
+ * - Capture audio via sox (rec)
+ * - Lecture audio via sox (play)
  * - Buffer circulaire pour flux continu
  */
 
-import portAudio from 'naudiodon';
+import { spawn, execSync } from 'child_process';
 import { EventEmitter } from 'events';
 
 export class CoreAudioBackend extends EventEmitter {
@@ -18,38 +21,96 @@ export class CoreAudioBackend extends EventEmitter {
 
     this.options = {
       sampleRate: options.sampleRate || 48000,
-      channels: options.channels || 1, // Mono par défaut
-      framesPerBuffer: options.framesPerBuffer || 960, // 20ms à 48kHz
-      inputDeviceId: options.inputDeviceId || null,
-      outputDeviceId: options.outputDeviceId || null,
+      channels: options.channels || 1,
+      framesPerBuffer: options.framesPerBuffer || 960,
+      inputDeviceName: options.inputDeviceName || null,
+      outputDeviceName: options.outputDeviceName || null,
       ...options
     };
 
-    this.inputStream = null;
-    this.outputStream = null;
+    this.captureProcess = null;
+    this.playbackProcess = null;
     this.isCapturing = false;
     this.isPlaying = false;
 
     // Buffer circulaire pour la lecture
     this.playbackBuffer = [];
-    this.maxBufferSize = 10; // Max 10 chunks en buffer
+    this.maxBufferSize = 10;
   }
 
   /**
-   * Liste tous les devices audio disponibles
+   * Liste tous les devices audio disponibles via system_profiler
    * @returns {Array} Liste des devices
    */
   static getDevices() {
     try {
-      // WORKAROUND: naudiodon a un bug connu qui cause un segfault
-      // On retourne des devices fictifs pour le développement
-      // TODO: Remplacer par un backend plus stable (node-portaudio ou JACK)
-      console.warn('⚠️  CoreAudio.getDevices(): utilisation de devices fictifs (naudiodon instable)');
+      const output = execSync('system_profiler SPAudioDataType -json', { encoding: 'utf8' });
+      const data = JSON.parse(output);
 
+      const devices = [];
+      let id = 0;
+
+      // Parse audio devices
+      if (data.SPAudioDataType) {
+        data.SPAudioDataType.forEach(item => {
+          if (item._items) {
+            item._items.forEach(device => {
+              const name = device._name || 'Unknown Device';
+
+              // Déterminer type (input/output)
+              const isInput = name.toLowerCase().includes('input') ||
+                              name.toLowerCase().includes('microphone') ||
+                              name.toLowerCase().includes('mic');
+
+              const isOutput = name.toLowerCase().includes('output') ||
+                               name.toLowerCase().includes('speaker') ||
+                               name.toLowerCase().includes('headphone');
+
+              devices.push({
+                id: id++,
+                name: name,
+                maxInputChannels: isInput ? 2 : 0,
+                maxOutputChannels: isOutput ? 2 : 0,
+                defaultSampleRate: 48000,
+                hostAPIName: 'Core Audio'
+              });
+            });
+          }
+        });
+      }
+
+      // Ajouter devices par défaut si liste vide
+      if (devices.length === 0) {
+        devices.push(
+          {
+            id: 0,
+            name: 'Built-in Microphone',
+            maxInputChannels: 1,
+            maxOutputChannels: 0,
+            defaultSampleRate: 48000,
+            hostAPIName: 'Core Audio'
+          },
+          {
+            id: 1,
+            name: 'Built-in Output',
+            maxInputChannels: 0,
+            maxOutputChannels: 2,
+            defaultSampleRate: 48000,
+            hostAPIName: 'Core Audio'
+          }
+        );
+      }
+
+      console.log(`✓ CoreAudio: ${devices.length} devices détectés`);
+      return devices;
+    } catch (error) {
+      console.error('Erreur énumération devices CoreAudio:', error);
+
+      // Fallback : devices par défaut
       return [
         {
           id: 0,
-          name: 'MacBook Pro Microphone',
+          name: 'Built-in Microphone',
           maxInputChannels: 1,
           maxOutputChannels: 0,
           defaultSampleRate: 48000,
@@ -57,35 +118,13 @@ export class CoreAudioBackend extends EventEmitter {
         },
         {
           id: 1,
-          name: 'MacBook Pro Speakers',
+          name: 'Built-in Output',
           maxInputChannels: 0,
           maxOutputChannels: 2,
           defaultSampleRate: 48000,
           hostAPIName: 'Core Audio'
-        },
-        {
-          id: 2,
-          name: 'External Audio Interface',
-          maxInputChannels: 8,
-          maxOutputChannels: 8,
-          defaultSampleRate: 48000,
-          hostAPIName: 'Core Audio'
         }
       ];
-
-      // Code original (commenté à cause du segfault)
-      // const devices = portAudio.getDevices();
-      // return devices.map((device, index) => ({
-      //   id: index,
-      //   name: device.name,
-      //   maxInputChannels: device.maxInputChannels,
-      //   maxOutputChannels: device.maxOutputChannels,
-      //   defaultSampleRate: device.defaultSampleRate,
-      //   hostAPIName: device.hostAPIName
-      // }));
-    } catch (error) {
-      console.error('Erreur énumération devices CoreAudio:', error);
-      return [];
     }
   }
 
@@ -108,7 +147,7 @@ export class CoreAudioBackend extends EventEmitter {
   }
 
   /**
-   * Démarre la capture audio
+   * Démarre la capture audio via sox (rec)
    * @returns {Promise<void>}
    */
   async startCapture() {
@@ -118,36 +157,55 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      const inputConfig = {
-        channelCount: this.options.channels,
-        sampleFormat: portAudio.SampleFormat16Bit,
-        sampleRate: this.options.sampleRate,
-        deviceId: this.options.inputDeviceId ?? undefined,
-        closeOnError: true
-      };
+      // Commande sox pour capturer audio
+      // rec : enregistrer depuis input par défaut
+      // -t raw : format raw PCM
+      // -b 16 : 16-bit
+      // -e signed-integer : signed PCM
+      // -c 1 : mono (ou nombre de canaux)
+      // -r 48000 : sample rate
+      // - : sortie vers stdout
+      const args = [
+        '-t', 'coreaudio',  // Driver CoreAudio
+        'default',          // Device par défaut (ou spécifier nom)
+        '-t', 'raw',
+        '-b', '16',
+        '-e', 'signed-integer',
+        `-c`, String(this.options.channels),
+        `-r`, String(this.options.sampleRate),
+        '-'  // Stdout
+      ];
 
-      this.inputStream = new portAudio.AudioIO({
-        inOptions: inputConfig
-      });
+      // Si device spécifié
+      if (this.options.inputDeviceName) {
+        args[1] = this.options.inputDeviceName;
+      }
 
-      this.inputStream.on('data', (audioData) => {
+      this.captureProcess = spawn('sox', args);
+
+      this.captureProcess.stdout.on('data', (audioData) => {
         // Émet les données audio capturées (Buffer PCM 16-bit)
         this.emit('audioData', audioData);
       });
 
-      this.inputStream.on('error', (error) => {
-        console.error('Erreur stream capture:', error);
+      this.captureProcess.stderr.on('data', (data) => {
+        const msg = data.toString();
+        if (!msg.includes('sox WARN')) {
+          console.error('sox capture stderr:', msg);
+        }
+      });
+
+      this.captureProcess.on('error', (error) => {
+        console.error('Erreur processus sox capture:', error);
         this.emit('error', error);
       });
 
-      this.inputStream.on('close', () => {
-        console.log('Stream capture fermé');
+      this.captureProcess.on('close', (code) => {
+        console.log(`Sox capture fermé (code ${code})`);
         this.isCapturing = false;
       });
 
-      this.inputStream.start();
       this.isCapturing = true;
-
       console.log(`✓ Capture audio démarrée : ${this.options.sampleRate}Hz, ${this.options.channels}ch`);
     } catch (error) {
       console.error('Erreur démarrage capture:', error);
@@ -159,16 +217,16 @@ export class CoreAudioBackend extends EventEmitter {
    * Arrête la capture audio
    */
   stopCapture() {
-    if (this.inputStream && this.isCapturing) {
-      this.inputStream.quit();
-      this.inputStream = null;
+    if (this.captureProcess && this.isCapturing) {
+      this.captureProcess.kill('SIGTERM');
+      this.captureProcess = null;
       this.isCapturing = false;
       console.log('✓ Capture audio arrêtée');
     }
   }
 
   /**
-   * Démarre la lecture audio
+   * Démarre la lecture audio via sox (play)
    * @returns {Promise<void>}
    */
   async startPlayback() {
@@ -178,33 +236,45 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      const outputConfig = {
-        channelCount: this.options.channels,
-        sampleFormat: portAudio.SampleFormat16Bit,
-        sampleRate: this.options.sampleRate,
-        deviceId: this.options.outputDeviceId ?? undefined,
-        closeOnError: true
-      };
+      // Commande sox pour lecture audio
+      // play : lire vers output par défaut
+      // -t raw : format raw PCM depuis stdin
+      const args = [
+        '-t', 'raw',
+        '-b', '16',
+        '-e', 'signed-integer',
+        `-c`, String(this.options.channels),
+        `-r`, String(this.options.sampleRate),
+        '-',  // Stdin
+        '-t', 'coreaudio',
+        'default'  // Device par défaut
+      ];
 
-      this.outputStream = new portAudio.AudioIO({
-        outOptions: outputConfig
+      // Si device spécifié
+      if (this.options.outputDeviceName) {
+        args[args.length - 1] = this.options.outputDeviceName;
+      }
+
+      this.playbackProcess = spawn('sox', args);
+
+      this.playbackProcess.stderr.on('data', (data) => {
+        const msg = data.toString();
+        if (!msg.includes('sox WARN')) {
+          console.error('sox playback stderr:', msg);
+        }
       });
 
-      this.outputStream.on('error', (error) => {
-        console.error('Erreur stream lecture:', error);
+      this.playbackProcess.on('error', (error) => {
+        console.error('Erreur processus sox playback:', error);
         this.emit('error', error);
       });
 
-      this.outputStream.on('close', () => {
-        console.log('Stream lecture fermé');
+      this.playbackProcess.on('close', (code) => {
+        console.log(`Sox playback fermé (code ${code})`);
         this.isPlaying = false;
       });
 
-      // Démarrage du stream de lecture
-      this.outputStream.start();
       this.isPlaying = true;
-
-      // Boucle de lecture du buffer circulaire
       this._startPlaybackLoop();
 
       console.log(`✓ Lecture audio démarrée : ${this.options.sampleRate}Hz, ${this.options.channels}ch`);
@@ -218,9 +288,9 @@ export class CoreAudioBackend extends EventEmitter {
    * Arrête la lecture audio
    */
   stopPlayback() {
-    if (this.outputStream && this.isPlaying) {
-      this.outputStream.quit();
-      this.outputStream = null;
+    if (this.playbackProcess && this.isPlaying) {
+      this.playbackProcess.kill('SIGTERM');
+      this.playbackProcess = null;
       this.isPlaying = false;
       this.playbackBuffer = [];
       console.log('✓ Lecture audio arrêtée');
@@ -252,19 +322,26 @@ export class CoreAudioBackend extends EventEmitter {
    */
   _startPlaybackLoop() {
     const playNextChunk = () => {
-      if (!this.isPlaying) return;
+      if (!this.isPlaying || !this.playbackProcess) return;
 
       if (this.playbackBuffer.length > 0) {
         const chunk = this.playbackBuffer.shift();
-        this.outputStream.write(chunk);
+        try {
+          this.playbackProcess.stdin.write(chunk);
+        } catch (error) {
+          console.error('Erreur écriture stdin sox:', error);
+        }
       } else {
-        // Buffer vide : underrun (on envoie du silence)
+        // Buffer vide : underrun (silence)
         const silenceBuffer = Buffer.alloc(this.options.framesPerBuffer * 2 * this.options.channels);
-        this.outputStream.write(silenceBuffer);
+        try {
+          this.playbackProcess.stdin.write(silenceBuffer);
+        } catch (error) {
+          // Ignore si process fermé
+        }
         this.emit('bufferUnderrun');
       }
 
-      // Rappel à intervalle régulier (20ms pour 960 frames à 48kHz)
       const intervalMs = (this.options.framesPerBuffer / this.options.sampleRate) * 1000;
       setTimeout(playNextChunk, intervalMs);
     };
@@ -283,14 +360,17 @@ export class CoreAudioBackend extends EventEmitter {
   }
 
   /**
-   * Vérifie si CoreAudio est disponible sur le système
+   * Vérifie si CoreAudio/sox est disponible sur le système
    * @returns {boolean}
    */
   static isAvailable() {
     try {
-      const devices = portAudio.getDevices();
-      return devices.length > 0;
+      // Vérifier si sox est installé
+      execSync('which sox', { stdio: 'ignore' });
+      return true;
     } catch (error) {
+      // sox n'est pas installé
+      console.warn('sox non installé. Installer avec : brew install sox');
       return false;
     }
   }

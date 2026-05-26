@@ -51,6 +51,16 @@ fi
 echo -e "${GREEN}✅ Homebrew $(brew --version | head -n 1)${NC}"
 echo ""
 
+# Installer sox (audio backend stable pour macOS)
+echo "🎵 Installation sox (audio backend)..."
+if command -v sox &> /dev/null; then
+    echo -e "${GREEN}✅ sox déjà installé ($(sox --version | head -n 1))${NC}"
+else
+    brew install sox
+    echo -e "${GREEN}✅ sox installé${NC}"
+fi
+echo ""
+
 # Installer LiveKit Server via Homebrew
 echo "📥 Installation LiveKit Server..."
 if command -v livekit-server &> /dev/null; then
