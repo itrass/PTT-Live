@@ -19,9 +19,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@livekit/rtc-node": "^0.13.28",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
-    "livekit-client": "^2.19.0",
     "livekit-server-sdk": "^2.6.0",
     "opusscript": "^0.1.1",
     "ws": "^8.17.0",

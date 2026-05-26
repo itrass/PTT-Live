@@ -1,23 +1,16 @@
 /**
  * LiveKitClient.js
- * Client LiveKit pour le bridge audio serveur
+ * Client LiveKit pour le bridge audio serveur (Node.js)
  *
- * Gère :
+ * Utilise @livekit/rtc-node pour :
  * - Connexion à la room en tant que participant "bridge"
- * - Publication de track audio (Opus depuis carte son)
+ * - Publication de tracks audio (PCM depuis carte son)
  * - Souscription aux tracks des autres participants (clients PWA)
+ * - Gestion audio bas niveau (AudioSource/AudioStream)
  * - Reconnexion automatique
  */
 
-import {
-  Room,
-  RoomEvent,
-  RemoteTrack,
-  RemoteParticipant,
-  LocalAudioTrack,
-  TrackPublishOptions,
-  AudioPresets
-} from 'livekit-client';
+import { Room, RoomEvent, AudioSource, AudioFrame } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
 
 export class LiveKitClient extends EventEmitter {
@@ -30,11 +23,13 @@ export class LiveKitClient extends EventEmitter {
       participantName: options.participantName || 'AudioBridge',
       token: options.token || null,
       autoSubscribe: options.autoSubscribe !== false,
-      audioBitrate: options.audioBitrate || 96000, // 96kbps par défaut
+      sampleRate: options.sampleRate || 48000,
+      channels: options.channels || 1, // Mono par défaut pour PTT
       ...options
     };
 
     this.room = null;
+    this.audioSource = null;
     this.localAudioTrack = null;
     this.isConnected = false;
     this.reconnecting = false;
@@ -58,13 +53,8 @@ export class LiveKitClient extends EventEmitter {
     }
 
     try {
-      this.room = new Room({
-        adaptiveStream: true,
-        dynacast: true,
-        reconnectionPolicy: {
-          nextRetryDelayInMs: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 10000)
-        }
-      });
+      // Création room
+      this.room = new Room();
 
       // Configuration des event listeners
       this._setupEventListeners();
@@ -79,9 +69,43 @@ export class LiveKitClient extends EventEmitter {
         roomName: this.options.roomName,
         participantName: this.options.participantName
       });
+
+      // Création de l'AudioSource pour pouvoir publier de l'audio
+      await this._createAudioSource();
+
     } catch (error) {
       console.error('Erreur connexion LiveKit:', error);
       this.emit('error', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Crée une AudioSource pour la publication audio
+   * @private
+   */
+  async _createAudioSource() {
+    try {
+      this.audioSource = new AudioSource(
+        this.options.sampleRate,
+        this.options.channels
+      );
+
+      // Publication du track audio
+      const options = {
+        source: 'microphone' // Simule un microphone pour les clients
+      };
+
+      this.localAudioTrack = await this.room.localParticipant.publishTrack(
+        this.audioSource,
+        options
+      );
+
+      console.log('✓ AudioSource créée et track publié');
+      this.emit('trackPublished', this.localAudioTrack);
+
+    } catch (error) {
+      console.error('Erreur création AudioSource:', error);
       throw error;
     }
   }
@@ -93,28 +117,17 @@ export class LiveKitClient extends EventEmitter {
   _setupEventListeners() {
     if (!this.room) return;
 
-    // Connexion/déconnexion
+    // Connexion
     this.room.on(RoomEvent.Connected, () => {
       console.log('✓ Room connectée');
       this.isConnected = true;
     });
 
-    this.room.on(RoomEvent.Disconnected, (reason) => {
-      console.log('⚠ Room déconnectée:', reason);
+    // Déconnexion
+    this.room.on(RoomEvent.Disconnected, () => {
+      console.log('⚠ Room déconnectée');
       this.isConnected = false;
-      this.emit('disconnected', { reason });
-    });
-
-    this.room.on(RoomEvent.Reconnecting, () => {
-      console.log('🔄 Reconnexion en cours...');
-      this.reconnecting = true;
-      this.emit('reconnecting');
-    });
-
-    this.room.on(RoomEvent.Reconnected, () => {
-      console.log('✓ Reconnecté');
-      this.reconnecting = false;
-      this.emit('reconnected');
+      this.emit('disconnected');
     });
 
     // Participants
@@ -133,11 +146,23 @@ export class LiveKitClient extends EventEmitter {
     this.room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
       if (track.kind === 'audio') {
         console.log(`🎵 Track audio souscrit de ${participant.identity}`);
+
+        // Création d'un AudioStream pour recevoir les données PCM
+        const stream = new track.AudioStream(
+          this.options.sampleRate,
+          this.options.channels
+        );
+
         this.remoteParticipants.set(participant.sid, {
           participant,
           track,
-          publication
+          publication,
+          stream
         });
+
+        // Lecture des frames audio
+        this._startAudioReceive(participant.sid, stream);
+
         this.emit('audioTrackSubscribed', { track, participant });
       }
     });
@@ -149,77 +174,72 @@ export class LiveKitClient extends EventEmitter {
         this.emit('audioTrackUnsubscribed', { track, participant });
       }
     });
-
-    // Données audio
-    this.room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
-      this.emit('audioPlaybackChanged');
-    });
-
-    // Erreurs
-    this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
-      this.emit('qualityChanged', { quality, participant });
-    });
   }
 
   /**
-   * Publie un track audio local depuis le bridge
-   * Note: Pour un bridge serveur, on utilise plutôt publishData pour envoyer Opus directement
-   * @param {MediaStreamTrack} mediaStreamTrack - Track audio du microphone
-   * @returns {Promise<void>}
+   * Démarre la réception audio d'un participant
+   * @private
    */
-  async publishAudioTrack(mediaStreamTrack) {
-    if (!this.isConnected) {
-      throw new Error('Pas connecté à LiveKit');
+  async _startAudioReceive(participantSid, stream) {
+    try {
+      // Lecture continue des frames audio
+      for await (const frame of stream) {
+        // frame est un AudioFrame avec :
+        // - data: Buffer PCM int16
+        // - sampleRate: number
+        // - numChannels: number
+        // - samplesPerChannel: number
+
+        const participant = this.remoteParticipants.get(participantSid);
+        if (!participant) break;
+
+        // Émettre les données audio vers AudioBridge
+        this.emit('audioData', {
+          participantSid,
+          participantName: participant.participant.identity,
+          pcmData: frame.data,
+          sampleRate: frame.sampleRate,
+          channels: frame.numChannels,
+          samplesPerChannel: frame.samplesPerChannel
+        });
+      }
+    } catch (error) {
+      console.error(`Erreur réception audio ${participantSid}:`, error);
+    }
+  }
+
+  /**
+   * Envoie des données audio PCM vers les clients
+   * @param {Buffer} pcmData - Données PCM int16 (mono ou multi-canal)
+   */
+  async sendAudioData(pcmData) {
+    if (!this.audioSource) {
+      console.warn('AudioSource non initialisée');
+      return;
     }
 
     try {
-      // Options de publication
-      const options = {
-        name: 'bridge-audio',
-        source: 'microphone',
-        audioBitrate: this.options.audioBitrate
-      };
+      // Création d'un AudioFrame
+      const samplesPerChannel = pcmData.length / 2 / this.options.channels;
 
-      this.localAudioTrack = await this.room.localParticipant.publishTrack(
-        mediaStreamTrack,
-        options
+      const frame = new AudioFrame(
+        pcmData,
+        this.options.sampleRate,
+        this.options.channels,
+        samplesPerChannel
       );
 
-      console.log('✓ Track audio local publié');
-      this.emit('trackPublished', this.localAudioTrack);
+      // Envoi via AudioSource
+      await this.audioSource.captureFrame(frame);
+
     } catch (error) {
-      console.error('Erreur publication track:', error);
-      this.emit('error', error);
-      throw error;
+      console.error('Erreur envoi audio:', error);
     }
-  }
-
-  /**
-   * Unpublish le track audio local
-   */
-  async unpublishAudioTrack() {
-    if (this.localAudioTrack) {
-      await this.room.localParticipant.unpublishTrack(this.localAudioTrack);
-      this.localAudioTrack = null;
-      console.log('✓ Track audio local dépublié');
-    }
-  }
-
-  /**
-   * Envoie des données audio Opus directement (pour bridge serveur)
-   * Alternative à publishAudioTrack pour contrôle bas niveau
-   * @param {Buffer} opusData - Données Opus encodées
-   */
-  sendAudioData(opusData) {
-    // Note: LiveKit ne supporte pas directement l'envoi de données Opus brutes
-    // Cette méthode serait implémentée avec un track custom ou DataChannel
-    // Pour l'instant, on utilise publishAudioTrack avec un MediaStreamTrack
-    console.warn('sendAudioData: Non implémenté, utiliser publishAudioTrack');
   }
 
   /**
    * Récupère tous les tracks audio distants actifs
-   * @returns {Array<Object>} Liste des tracks avec métadonnées
+   * @returns {Array<Object>}
    */
   getRemoteAudioTracks() {
     return Array.from(this.remoteParticipants.values()).map(({ participant, track, publication }) => ({
@@ -234,7 +254,7 @@ export class LiveKitClient extends EventEmitter {
 
   /**
    * Récupère un participant distant par son SID
-   * @param {string} sid - SID du participant
+   * @param {string} sid
    * @returns {Object|null}
    */
   getRemoteParticipant(sid) {
@@ -261,15 +281,14 @@ export class LiveKitClient extends EventEmitter {
       localParticipant: {
         sid: localParticipant?.sid,
         identity: localParticipant?.identity,
-        tracksPublished: localParticipant?.trackPublications.size || 0
+        tracksPublished: localParticipant?.trackPublications?.size || 0
       },
       remoteParticipants: {
         count: participants.size,
         list: Array.from(participants.values()).map(p => ({
           sid: p.sid,
           identity: p.identity,
-          audioTracks: Array.from(p.audioTrackPublications.values()).length,
-          connectionQuality: p.connectionQuality
+          audioTracks: Array.from(p.audioTrackPublications?.values() || []).length
         }))
       }
     };
@@ -280,13 +299,20 @@ export class LiveKitClient extends EventEmitter {
    */
   async disconnect() {
     if (this.room) {
-      await this.unpublishAudioTrack();
-      this.room.disconnect();
+      // Unpublish track
+      if (this.localAudioTrack) {
+        await this.room.localParticipant.unpublishTrack(this.localAudioTrack.sid);
+        this.localAudioTrack = null;
+      }
+
+      // Déconnexion
+      await this.room.disconnect();
       this.room = null;
+      this.audioSource = null;
       this.isConnected = false;
       this.remoteParticipants.clear();
       console.log('✓ Déconnecté de LiveKit');
-      this.emit('disconnected', { reason: 'manual' });
+      this.emit('disconnected');
     }
   }
 
