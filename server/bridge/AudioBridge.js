@@ -301,6 +301,8 @@ export class AudioBridge extends EventEmitter {
       token: this.options.liveKitToken,
       roomName: this.options.roomName,
       participantName: 'AudioBridge',
+      sampleRate: this.options.sampleRate,
+      channels: this.options.channels,
       audioBitrate: this.opusEncoder.options.bitrate
     });
 

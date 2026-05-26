@@ -57,22 +57,29 @@ export class CoreAudioBackend extends EventEmitter {
             item._items.forEach(device => {
               const name = device._name || 'Unknown Device';
 
-              // Déterminer type (input/output)
-              const isInput = name.toLowerCase().includes('input') ||
-                              name.toLowerCase().includes('microphone') ||
-                              name.toLowerCase().includes('mic');
+              // Les clés coreaudio_device_input/output contiennent le nombre de canaux
+              const inputChannels = parseInt(device.coreaudio_device_input) || 0;
+              const outputChannels = parseInt(device.coreaudio_device_output) || 0;
+              const sampleRate = parseInt(device.coreaudio_device_srate) || 48000;
 
-              const isOutput = name.toLowerCase().includes('output') ||
-                               name.toLowerCase().includes('speaker') ||
-                               name.toLowerCase().includes('headphone');
+              // Ignorer les devices sans input ni output
+              if (inputChannels === 0 && outputChannels === 0) {
+                return;
+              }
 
               devices.push({
                 id: id++,
                 name: name,
-                maxInputChannels: isInput ? 2 : 0,
-                maxOutputChannels: isOutput ? 2 : 0,
-                defaultSampleRate: 48000,
-                hostAPIName: 'Core Audio'
+                maxInputChannels: inputChannels,
+                maxOutputChannels: outputChannels,
+                defaultSampleRate: sampleRate,
+                hostAPIName: 'Core Audio',
+                manufacturer: device.coreaudio_device_manufacturer || 'Unknown',
+                transport: device.coreaudio_device_transport || 'unknown',
+                isDefault: {
+                  input: device.coreaudio_default_audio_input_device === 'spaudio_yes',
+                  output: device.coreaudio_default_audio_output_device === 'spaudio_yes'
+                }
               });
             });
           }

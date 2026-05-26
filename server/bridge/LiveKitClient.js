@@ -10,7 +10,7 @@
  * - Reconnexion automatique
  */
 
-import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack } from '@livekit/rtc-node';
+import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack, TrackSource } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
 
 export class LiveKitClient extends EventEmitter {
@@ -86,20 +86,35 @@ export class LiveKitClient extends EventEmitter {
    */
   async _createAudioSource() {
     try {
-      // Création de l'AudioSource
-      this.audioSource = new AudioSource(
-        this.options.sampleRate,
-        this.options.channels
-      );
+      // Debug: afficher les valeurs avant conversion
+      const sampleRate = parseInt(this.options.sampleRate, 10);
+      const channels = parseInt(this.options.channels, 10);
+
+      console.log('🔍 DEBUG AudioSource:', {
+        sampleRateOriginal: this.options.sampleRate,
+        sampleRateType: typeof this.options.sampleRate,
+        sampleRateConverted: sampleRate,
+        sampleRateConvertedType: typeof sampleRate,
+        channelsOriginal: this.options.channels,
+        channelsType: typeof this.options.channels,
+        channelsConverted: channels,
+        channelsConvertedType: typeof channels
+      });
+
+      // Création de l'AudioSource (conversion en int32 explicite)
+      this.audioSource = new AudioSource(sampleRate, channels);
+      console.log('✓ AudioSource créée:', this.audioSource);
 
       // Création du LocalAudioTrack depuis l'AudioSource
       const localTrack = LocalAudioTrack.createAudioTrack('bridge-audio', this.audioSource);
+      console.log('✓ LocalAudioTrack créé:', localTrack);
 
       // Publication du track
       const options = {
-        source: 'microphone' // Simule un microphone pour les clients
+        source: TrackSource.SOURCE_MICROPHONE // Simule un microphone pour les clients
       };
 
+      console.log('🔍 DEBUG publishTrack options:', options);
       this.localAudioTrack = await this.room.localParticipant.publishTrack(
         localTrack,
         options
@@ -223,13 +238,13 @@ export class LiveKitClient extends EventEmitter {
     }
 
     try {
-      // Création d'un AudioFrame
-      const samplesPerChannel = pcmData.length / 2 / this.options.channels;
+      // Création d'un AudioFrame (conversion en int32 explicite)
+      const samplesPerChannel = Math.floor(pcmData.length / 2 / this.options.channels);
 
       const frame = new AudioFrame(
         pcmData,
-        this.options.sampleRate,
-        this.options.channels,
+        parseInt(this.options.sampleRate, 10),
+        parseInt(this.options.channels, 10),
         samplesPerChannel
       );
 

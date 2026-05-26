@@ -61,9 +61,27 @@ class AudioBridgeManager extends EventEmitter {
       // Import dynamique du AudioBridge
       const { AudioBridge } = await import('./AudioBridge.js');
 
+      // Préparer la config avec conversion explicite des valeurs numériques
+      const audioConfig = { ...config.audio };
+
+      // Conversion explicite des paramètres numériques (depuis YAML ils peuvent être strings)
+      if (audioConfig.sampleRate) audioConfig.sampleRate = parseInt(audioConfig.sampleRate, 10);
+      if (audioConfig.channels) audioConfig.channels = parseInt(audioConfig.channels, 10);
+
+      // frameSize en millisecondes → conversion en nombre d'échantillons
+      // Ex: 20ms à 48kHz = 960 échantillons
+      if (audioConfig.frameSize) {
+        const frameSizeMs = parseInt(audioConfig.frameSize, 10);
+        const sampleRate = audioConfig.sampleRate || 48000;
+        audioConfig.frameSize = Math.floor((frameSizeMs * sampleRate) / 1000);
+      }
+
+      if (audioConfig.defaultBitrate) audioConfig.defaultBitrate = parseInt(audioConfig.defaultBitrate, 10);
+      if (audioConfig.customOpusBitrate) audioConfig.customOpusBitrate = parseInt(audioConfig.customOpusBitrate, 10);
+
       // Créer l'instance avec la config
       this.bridge = new AudioBridge({
-        ...config.audio,
+        ...audioConfig,
         // Options LiveKit
         liveKitUrl: config.server?.livekit?.url || 'ws://localhost:7880',
         liveKitToken,
