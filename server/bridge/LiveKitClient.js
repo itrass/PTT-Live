@@ -10,7 +10,7 @@
  * - Reconnexion automatique
  */
 
-import { Room, RoomEvent, AudioSource, AudioFrame } from '@livekit/rtc-node';
+import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
 
 export class LiveKitClient extends EventEmitter {
@@ -86,18 +86,22 @@ export class LiveKitClient extends EventEmitter {
    */
   async _createAudioSource() {
     try {
+      // Création de l'AudioSource
       this.audioSource = new AudioSource(
         this.options.sampleRate,
         this.options.channels
       );
 
-      // Publication du track audio
+      // Création du LocalAudioTrack depuis l'AudioSource
+      const localTrack = LocalAudioTrack.createAudioTrack('bridge-audio', this.audioSource);
+
+      // Publication du track
       const options = {
         source: 'microphone' // Simule un microphone pour les clients
       };
 
       this.localAudioTrack = await this.room.localParticipant.publishTrack(
-        this.audioSource,
+        localTrack,
         options
       );
 
