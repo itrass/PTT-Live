@@ -112,35 +112,45 @@ class ConfigManager extends EventEmitter {
    * Met à jour la configuration audio device
    */
   updateAudioDevice(deviceConfig) {
-    if (!this.config.audio) {
-      this.config.audio = {};
-    }
+    try {
+      console.log('📝 ConfigManager.updateAudioDevice:', deviceConfig);
 
-    if (!this.config.audio.device) {
-      this.config.audio.device = {};
-    }
+      if (!this.config.audio) {
+        this.config.audio = {};
+      }
 
-    // Mettre à jour les paramètres fournis
-    if (deviceConfig.inputDeviceId !== undefined) {
-      this.config.audio.device.inputDeviceId = deviceConfig.inputDeviceId;
-    }
-    if (deviceConfig.outputDeviceId !== undefined) {
-      this.config.audio.device.outputDeviceId = deviceConfig.outputDeviceId;
-    }
-    if (deviceConfig.sampleRate !== undefined) {
-      this.config.audio.device.sampleRate = deviceConfig.sampleRate;
-      this.config.audio.sampleRate = deviceConfig.sampleRate; // Sync avec config globale
-    }
-    if (deviceConfig.bufferSize !== undefined) {
-      this.config.audio.device.bufferSize = deviceConfig.bufferSize;
-    }
+      if (!this.config.audio.device) {
+        this.config.audio.device = {};
+      }
 
-    this.save(this.config);
+      // Mettre à jour les paramètres fournis
+      if (deviceConfig.inputDeviceId !== undefined) {
+        this.config.audio.device.inputDeviceId = deviceConfig.inputDeviceId;
+      }
+      if (deviceConfig.outputDeviceId !== undefined) {
+        this.config.audio.device.outputDeviceId = deviceConfig.outputDeviceId;
+      }
+      if (deviceConfig.sampleRate !== undefined) {
+        this.config.audio.device.sampleRate = deviceConfig.sampleRate;
+        this.config.audio.sampleRate = deviceConfig.sampleRate; // Sync avec config globale
+      }
+      if (deviceConfig.bufferSize !== undefined) {
+        this.config.audio.device.bufferSize = deviceConfig.bufferSize;
+      }
 
-    // Émettre événement spécifique
-    this.emit('audio-device-updated', this.config.audio.device);
+      console.log('💾 Sauvegarde configuration...');
+      this.save(this.config);
 
-    return this.config.audio.device;
+      // Émettre événement spécifique
+      console.log('📢 Émission événement audio-device-updated');
+      this.emit('audio-device-updated', this.config.audio.device);
+
+      console.log('✓ Configuration audio device mise à jour');
+      return this.config.audio.device;
+    } catch (error) {
+      console.error('❌ Erreur updateAudioDevice:', error);
+      throw error;
+    }
   }
 
   /**
