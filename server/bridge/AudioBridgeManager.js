@@ -5,6 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { AccessToken } from 'livekit-server-sdk';
 import configManager from '../config/ConfigManager.js';
 
 class AudioBridgeManager extends EventEmitter {
@@ -31,6 +32,32 @@ class AudioBridgeManager extends EventEmitter {
       const config = configManager.get();
       console.log('🎵 Démarrage AudioBridge avec configuration:', config.audio);
 
+      // Génération du token JWT pour le participant serveur
+      const token = new AccessToken(
+        config.server?.livekit?.apiKey || 'devkey',
+        config.server?.livekit?.apiSecret || 'secret',
+        {
+          identity: 'AudioBridge',
+          name: 'Audio Bridge Server',
+          metadata: JSON.stringify({
+            role: 'bridge',
+            capabilities: ['audio-routing', 'monitoring']
+          })
+        }
+      );
+
+      // Permissions complètes pour le bridge serveur
+      token.addGrant({
+        room: 'main',
+        roomJoin: true,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true
+      });
+
+      const liveKitToken = await token.toJwt();
+      console.log('✓ Token JWT généré pour AudioBridge');
+
       // Import dynamique du AudioBridge
       const { AudioBridge } = await import('./AudioBridge.js');
 
@@ -39,7 +66,7 @@ class AudioBridgeManager extends EventEmitter {
         ...config.audio,
         // Options LiveKit
         liveKitUrl: config.server?.livekit?.url || 'ws://localhost:7880',
-        liveKitToken: null, // Le bridge serveur n'a pas besoin de token pour l'instant
+        liveKitToken,
         roomName: 'main',
         // Options de routing
         routing: config.audio?.routing || {},
