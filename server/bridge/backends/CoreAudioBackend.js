@@ -48,7 +48,6 @@ export class CoreAudioBackend extends EventEmitter {
       const data = JSON.parse(output);
 
       const devices = [];
-      let id = 0;
 
       // Parse audio devices
       if (data.SPAudioDataType) {
@@ -62,13 +61,16 @@ export class CoreAudioBackend extends EventEmitter {
               const outputChannels = parseInt(device.coreaudio_device_output) || 0;
               const sampleRate = parseInt(device.coreaudio_device_srate) || 48000;
 
+              // Utiliser le UID CoreAudio comme ID (unique et stable)
+              const deviceUID = device._uniqueID || device.coreaudio_device_uid || name;
+
               // Ignorer les devices sans input ni output
               if (inputChannels === 0 && outputChannels === 0) {
                 return;
               }
 
               devices.push({
-                id: id++,
+                id: deviceUID,
                 name: name,
                 maxInputChannels: inputChannels,
                 maxOutputChannels: outputChannels,
@@ -90,7 +92,7 @@ export class CoreAudioBackend extends EventEmitter {
       if (devices.length === 0) {
         devices.push(
           {
-            id: 0,
+            id: 'builtin-mic',
             name: 'Built-in Microphone',
             maxInputChannels: 1,
             maxOutputChannels: 0,
@@ -98,7 +100,7 @@ export class CoreAudioBackend extends EventEmitter {
             hostAPIName: 'Core Audio'
           },
           {
-            id: 1,
+            id: 'builtin-output',
             name: 'Built-in Output',
             maxInputChannels: 0,
             maxOutputChannels: 2,
@@ -116,7 +118,7 @@ export class CoreAudioBackend extends EventEmitter {
       // Fallback : devices par défaut
       return [
         {
-          id: 0,
+          id: 'builtin-mic',
           name: 'Built-in Microphone',
           maxInputChannels: 1,
           maxOutputChannels: 0,
@@ -124,7 +126,7 @@ export class CoreAudioBackend extends EventEmitter {
           hostAPIName: 'Core Audio'
         },
         {
-          id: 1,
+          id: 'builtin-output',
           name: 'Built-in Output',
           maxInputChannels: 0,
           maxOutputChannels: 2,
@@ -203,7 +205,7 @@ export class CoreAudioBackend extends EventEmitter {
 
       // Si device spécifié
       if (this.options.inputDeviceName) {
-        args[1] = this.options.inputDeviceName;
+        args[2] = this.options.inputDeviceName;  // Index 2 = device name
       }
 
       this.captureProcess = spawn('sox', args);
@@ -255,8 +257,10 @@ export class CoreAudioBackend extends EventEmitter {
    * @returns {Promise<void>}
    */
   async startPlayback() {
+    console.log('🔊 Démarrage playback sox...');
+
     if (this.isPlaying) {
-      console.warn('Lecture déjà active');
+      console.warn('⚠️  Lecture déjà active');
       return;
     }
 
@@ -264,7 +268,9 @@ export class CoreAudioBackend extends EventEmitter {
       // Commande sox pour lecture audio
       // play : lire vers output par défaut
       // -t raw : format raw PCM depuis stdin
+      // --buffer : taille du buffer interne sox (en bytes)
       const args = [
+        '--buffer', '8192',  // Buffer interne sox
         '-t', 'raw',
         '-b', '16',
         '-e', 'signed-integer',
@@ -280,7 +286,9 @@ export class CoreAudioBackend extends EventEmitter {
         args[args.length - 1] = this.options.outputDeviceName;
       }
 
-      this.playbackProcess = spawn('sox', args);
+      this.playbackProcess = spawn('sox', args, {
+        stdio: ['pipe', 'ignore', 'pipe']  // stdin=pipe, stdout=ignore, stderr=pipe
+      });
 
       // Gérer l'erreur EPIPE sur stdin (si processus se ferme)
       this.playbackProcess.stdin.on('error', (error) => {
@@ -305,12 +313,27 @@ export class CoreAudioBackend extends EventEmitter {
       });
 
       this.playbackProcess.on('close', (code) => {
-        console.log(`Sox playback fermé (code ${code})`);
+        console.log(`⚠️  Sox playback fermé (code ${code}) après ${((Date.now() - this.playbackStartTime) / 1000).toFixed(1)}s`);
         this.isPlaying = false;
+
+        // Tenter de redémarrer si c'était inattendu
+        if (code !== 0) {
+          console.log('🔄 Tentative de redémarrage du playback...');
+          setTimeout(() => this.startPlayback(), 1000);
+        }
       });
 
+      this.playbackStartTime = Date.now();
       this.isPlaying = true;
       this._startPlaybackLoop();
+
+      // Envoyer immédiatement du silence pour démarrer sox
+      const silenceBuffer = Buffer.alloc(this.options.framesPerBuffer * 2 * this.options.channels);
+      for (let i = 0; i < 10; i++) {
+        if (this.playbackProcess.stdin.writable) {
+          this.playbackProcess.stdin.write(silenceBuffer);
+        }
+      }
 
       console.log(`✓ Lecture audio démarrée : ${this.options.sampleRate}Hz, ${this.options.channels}ch`);
     } catch (error) {
@@ -323,6 +346,11 @@ export class CoreAudioBackend extends EventEmitter {
    * Arrête la lecture audio
    */
   stopPlayback() {
+    if (this.playbackInterval) {
+      clearInterval(this.playbackInterval);
+      this.playbackInterval = null;
+    }
+
     if (this.playbackProcess && this.isPlaying) {
       this.playbackProcess.kill('SIGTERM');
       this.playbackProcess = null;
@@ -338,9 +366,15 @@ export class CoreAudioBackend extends EventEmitter {
    */
   queueAudio(audioData) {
     if (!this.isPlaying) {
-      console.warn('Tentative ajout audio alors que lecture inactive');
+      // Ne logger qu'une fois pour éviter le spam
+      if (!this.playbackInactiveWarned) {
+        console.warn('⚠️  Tentative ajout audio alors que lecture inactive (message unique)');
+        this.playbackInactiveWarned = true;
+      }
       return;
     }
+
+    this.playbackInactiveWarned = false;
 
     // Limite la taille du buffer pour éviter la latence excessive
     if (this.playbackBuffer.length < this.maxBufferSize) {
@@ -356,42 +390,48 @@ export class CoreAudioBackend extends EventEmitter {
    * @private
    */
   _startPlaybackLoop() {
-    const playNextChunk = () => {
+    // Calculer l'intervalle en ms (ex: 960 frames à 48kHz = 20ms)
+    const intervalMs = (this.options.framesPerBuffer / this.options.sampleRate) * 1000;
+
+    console.log(`🔁 Boucle playback démarrée (intervalle: ${intervalMs}ms)`);
+
+    // Utiliser setInterval pour garantir un flux continu
+    this.playbackInterval = setInterval(() => {
       if (!this.isPlaying || !this.playbackProcess || !this.playbackProcess.stdin) {
+        if (this.playbackInterval) {
+          clearInterval(this.playbackInterval);
+          this.playbackInterval = null;
+        }
         return;
       }
 
+      let chunk;
       if (this.playbackBuffer.length > 0) {
-        const chunk = this.playbackBuffer.shift();
-        try {
-          if (this.playbackProcess.stdin.writable) {
-            this.playbackProcess.stdin.write(chunk);
-          }
-        } catch (error) {
-          console.error('Erreur écriture stdin sox:', error);
-          this.isPlaying = false;
-          return;
-        }
+        chunk = this.playbackBuffer.shift();
       } else {
-        // Buffer vide : underrun (silence)
-        const silenceBuffer = Buffer.alloc(this.options.framesPerBuffer * 2 * this.options.channels);
-        try {
-          if (this.playbackProcess.stdin.writable) {
-            this.playbackProcess.stdin.write(silenceBuffer);
-          }
-        } catch (error) {
-          // Ignore si process fermé
-          this.isPlaying = false;
-          return;
-        }
-        this.emit('bufferUnderrun');
+        // Buffer vide : underrun (envoyer du silence)
+        chunk = Buffer.alloc(this.options.framesPerBuffer * 2 * this.options.channels);
       }
 
-      const intervalMs = (this.options.framesPerBuffer / this.options.sampleRate) * 1000;
-      setTimeout(playNextChunk, intervalMs);
-    };
-
-    playNextChunk();
+      // Toujours écrire quelque chose pour garder sox actif
+      try {
+        if (this.playbackProcess.stdin.writable) {
+          this.playbackProcess.stdin.write(chunk);
+        } else {
+          console.warn('⚠️  Sox stdin non writable, arrêt boucle');
+          this.isPlaying = false;
+          clearInterval(this.playbackInterval);
+          this.playbackInterval = null;
+        }
+      } catch (error) {
+        if (error.code !== 'EPIPE') {
+          console.error('Erreur écriture stdin sox:', error);
+        }
+        this.isPlaying = false;
+        clearInterval(this.playbackInterval);
+        this.playbackInterval = null;
+      }
+    }, intervalMs);
   }
 
   /**

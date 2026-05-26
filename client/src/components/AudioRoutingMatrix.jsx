@@ -10,9 +10,11 @@ function AudioRoutingMatrix({ groups, channelNames }) {
   const [routing, setRouting] = useState({ inputToGroup: {}, groupToOutput: {}, gains: {} });
   const [loading, setLoading] = useState(true);
   const [showOnlyNamedChannels, setShowOnlyNamedChannels] = useState(false);
+  const [audioDevice, setAudioDevice] = useState({ inputChannels: 8, outputChannels: 8 });
 
   useEffect(() => {
     loadRouting();
+    loadAudioDevice();
   }, []);
 
   const loadRouting = async () => {
@@ -27,6 +29,21 @@ function AudioRoutingMatrix({ groups, channelNames }) {
       console.error('Erreur chargement routing:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAudioDevice = async () => {
+    try {
+      const res = await fetch(`${API_URL}/admin/audio/device`);
+      if (res.ok) {
+        const data = await res.json();
+        setAudioDevice({
+          inputChannels: data.device?.inputChannels || 8,
+          outputChannels: data.device?.outputChannels || 8
+        });
+      }
+    } catch (error) {
+      console.error('Erreur chargement audio device:', error);
     }
   };
 
@@ -146,7 +163,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
   };
 
   const getVisibleInputChannels = () => {
-    const allInputs = Array.from({length: 8}, (_, i) => i);
+    const allInputs = Array.from({length: audioDevice.inputChannels}, (_, i) => i);
     if (showOnlyNamedChannels) {
       return allInputs.filter(i => hasCustomName('inputs', i));
     }
@@ -154,7 +171,7 @@ function AudioRoutingMatrix({ groups, channelNames }) {
   };
 
   const getVisibleOutputChannels = () => {
-    const allOutputs = Array.from({length: 8}, (_, i) => i);
+    const allOutputs = Array.from({length: audioDevice.outputChannels}, (_, i) => i);
     if (showOnlyNamedChannels) {
       return allOutputs.filter(i => hasCustomName('outputs', i));
     }

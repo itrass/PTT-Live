@@ -13,11 +13,17 @@ import adminRouter, { registerUser, addLog } from './api/admin.js';
 import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
 import AudioLevelsServer from './websocket/AudioLevelsServer.js';
+import { setGlobalLogLevel } from './utils/Logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Chargement configuration via ConfigManager
 const config = configManager.get();
+
+// Configure le niveau de log
+const logLevel = config.logging?.level?.toUpperCase() || 'INFO';
+setGlobalLogLevel(logLevel);
+console.log(`📊 Niveau de log: ${logLevel}`);
 
 // Note: Les IDs sont maintenant générés automatiquement par le ConfigManager
 

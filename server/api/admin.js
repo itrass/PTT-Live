@@ -179,7 +179,7 @@ router.get('/groups', (req, res) => {
 /**
  * POST /admin/groups
  * Crée un nouveau groupe
- * Body: { name, audioBitrate?, channels }
+ * Body: { name, audioBitrate? }
  * L'ID est généré automatiquement à partir du nom
  */
 router.post('/groups', (req, res) => {
@@ -204,7 +204,7 @@ router.post('/groups', (req, res) => {
       });
     }
 
-    // Créer le nouveau groupe (sans channels)
+    // Créer le nouveau groupe
     const newGroup = {
       name,
       ...(audioBitrate && { audioBitrate })
@@ -482,8 +482,28 @@ router.get('/audio/device', (req, res) => {
     const config = configManager.get();
     const audioDevice = config.audio?.device || {};
 
+    // Enrichir avec les infos réelles de la carte si configurée
+    const devices = CoreAudioBackend.getDevices();
+    let deviceInfo = { ...audioDevice };
+
+    if (audioDevice.inputDeviceId) {
+      const inputDev = devices.find(d => d.id === audioDevice.inputDeviceId);
+      if (inputDev) {
+        deviceInfo.inputChannels = inputDev.maxInputChannels;
+        deviceInfo.inputDeviceName = inputDev.name;
+      }
+    }
+
+    if (audioDevice.outputDeviceId) {
+      const outputDev = devices.find(d => d.id === audioDevice.outputDeviceId);
+      if (outputDev) {
+        deviceInfo.outputChannels = outputDev.maxOutputChannels;
+        deviceInfo.outputDeviceName = outputDev.name;
+      }
+    }
+
     res.json({
-      device: audioDevice
+      device: deviceInfo
     });
   } catch (error) {
     console.error('Erreur GET /admin/audio/device:', error);

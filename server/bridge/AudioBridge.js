@@ -196,13 +196,31 @@ export class AudioBridge extends EventEmitter {
       throw new Error(`Plateforme non supportée : ${os}`);
     }
 
+    // Résoudre les device IDs vers les noms pour CoreAudio/sox
+    let inputDeviceName = null;
+    let outputDeviceName = null;
+
+    if (this.options.inputDeviceId) {
+      const inputDevice = BackendClass.getDevices().find(d => d.id === this.options.inputDeviceId);
+      inputDeviceName = inputDevice ? inputDevice.name : this.options.inputDeviceId;
+      console.log(`📥 Input device: "${inputDeviceName}" (ID: ${this.options.inputDeviceId})`);
+    }
+
+    if (this.options.outputDeviceId) {
+      const outputDevice = BackendClass.getDevices().find(d => d.id === this.options.outputDeviceId);
+      outputDeviceName = outputDevice ? outputDevice.name : this.options.outputDeviceId;
+      console.log(`📤 Output device: "${outputDeviceName}" (ID: ${this.options.outputDeviceId})`);
+    }
+
     // Initialisation du backend sélectionné
     this.audioBackend = new BackendClass({
       sampleRate: this.options.sampleRate,
       channels: this.options.channels,
       framesPerBuffer: this.options.frameSize,
       inputDeviceId: this.options.inputDeviceId,
+      inputDeviceName: inputDeviceName,
       outputDeviceId: this.options.outputDeviceId,
+      outputDeviceName: outputDeviceName,
       // Options spécifiques PipeWire
       latency: this.options.latency || 20
     });
@@ -366,6 +384,10 @@ export class AudioBridge extends EventEmitter {
           this.inputChannelBuffers
         );
 
+        if (this.stats.framesCapture % 100 === 0) {
+          console.log(`[AudioBridge] Frame ${this.stats.framesCapture}: ${this.inputChannelBuffers.size} inputs → ${groupBuffers.size} groupes`);
+        }
+
         // ÉTAPE 2 : Pour chaque groupe, envoyer vers LiveKit
         groupBuffers.forEach((groupBuffer, groupName) => {
           // Convertir Float32Array → PCM Buffer
@@ -375,13 +397,19 @@ export class AudioBridge extends EventEmitter {
           const opusData = this.opusEncoder.encode(pcmBuffer);
 
           if (opusData) {
-            this.stats.framesCapture++;
             this.stats.bytesEncoded += opusData.length;
 
             // Envoi vers LiveKit via sendAudioData (prend du PCM, pas de l'Opus)
             // Note: LiveKit gère lui-même l'encodage Opus en interne
-            if (this.liveKitClient && this.liveKitClient.connected) {
+            if (this.liveKitClient && this.liveKitClient.isConnected) {
               this.liveKitClient.sendAudioData(pcmBuffer);
+              if (this.stats.framesCapture % 100 === 0) {
+                console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes`);
+              }
+            } else {
+              if (this.stats.framesCapture % 100 === 0) {
+                console.log(`[AudioBridge] ⚠️  LiveKit non connecté, audio non envoyé`);
+              }
             }
 
             // Émettre aussi pour monitoring/debug
@@ -389,7 +417,27 @@ export class AudioBridge extends EventEmitter {
           }
         });
 
+        // ÉTAPE 3 : Loopback local - Groupes → Outputs physiques (sans passer par LiveKit)
+        const outputBuffers = this.groupAudioRouter.processGroupsToOutputs(groupBuffers);
+
+        if (this.stats.framesCapture % 100 === 0) {
+          console.log(`[AudioBridge] Loopback local: ${groupBuffers.size} groupes → ${outputBuffers.size} outputs`);
+        }
+
+        // ÉTAPE 4 : Envoyer chaque output à la carte son
+        outputBuffers.forEach((outputBuffer, channelId) => {
+          const pcmBuffer = this._float32ToBuffer(outputBuffer);
+
+          // Envoyer à la carte son
+          this.audioBackend.queueAudio(pcmBuffer);
+
+          if (this.stats.framesCapture % 100 === 0) {
+            console.log(`[AudioBridge] → Output ${channelId}: ${pcmBuffer.length} bytes`);
+          }
+        });
+
         this.stats.framesCapture++;
+        this.stats.framesPlayback++;
       } catch (error) {
         console.error('Erreur routing capture:', error);
         this.stats.errors.capture++;

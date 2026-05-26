@@ -79,6 +79,10 @@ class AudioBridgeManager extends EventEmitter {
       if (audioConfig.defaultBitrate) audioConfig.defaultBitrate = parseInt(audioConfig.defaultBitrate, 10);
       if (audioConfig.customOpusBitrate) audioConfig.customOpusBitrate = parseInt(audioConfig.customOpusBitrate, 10);
 
+      // Extraire les device IDs depuis le sous-objet device
+      const inputDeviceId = audioConfig.device?.inputDeviceId || null;
+      const outputDeviceId = audioConfig.device?.outputDeviceId || null;
+
       // Créer l'instance avec la config
       this.bridge = new AudioBridge({
         ...audioConfig,
@@ -90,7 +94,10 @@ class AudioBridgeManager extends EventEmitter {
         routing: config.audio?.routing || {},
         groups: config.groups || [],
         maxInputChannels: 32,
-        maxOutputChannels: 32
+        maxOutputChannels: 32,
+        // Device IDs extraits
+        inputDeviceId,
+        outputDeviceId
       });
 
       // Démarrer le bridge

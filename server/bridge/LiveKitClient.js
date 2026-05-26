@@ -223,6 +223,11 @@ export class LiveKitClient extends EventEmitter {
       return;
     }
 
+    if (!this.isConnected || !this.localAudioTrack) {
+      // Silently drop frames si pas encore connecté
+      return;
+    }
+
     try {
       // Création d'un AudioFrame (conversion en int32 explicite)
       const samplesPerChannel = Math.floor(pcmData.length / 2 / this.options.channels);
@@ -238,7 +243,10 @@ export class LiveKitClient extends EventEmitter {
       await this.audioSource.captureFrame(frame);
 
     } catch (error) {
-      console.error('Erreur envoi audio:', error);
+      // Ne logger que les erreurs non-InvalidState pour éviter le spam
+      if (!error.message.includes('InvalidState')) {
+        console.error('Erreur envoi audio:', error);
+      }
     }
   }
 

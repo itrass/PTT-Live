@@ -15,7 +15,7 @@ function Admin() {
 
   // Audio devices (Phase 2.5)
   const [audioDevices, setAudioDevices] = useState([]);
-  const [currentDevice, setCurrentDevice] = useState(null);
+  const [currentDevice, setCurrentDevice] = useState({ inputChannels: 8, outputChannels: 8 });
   const [selectedInputDevice, setSelectedInputDevice] = useState(null);
   const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
   const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
@@ -30,8 +30,7 @@ function Admin() {
   const [editingGroup, setEditingGroup] = useState(null);
   const [groupForm, setGroupForm] = useState({
     name: '',
-    audioBitrate: 96,
-    channels: []
+    audioBitrate: 96
   });
 
   // Rafraîchissement automatique
@@ -102,14 +101,16 @@ function Admin() {
     const channelNamesData = await channelNamesRes.json();
 
     setAudioDevices(devicesData.devices || []);
-    setCurrentDevice(currentData.device || {});
+
+    const device = currentData.device || { inputChannels: 8, outputChannels: 8 };
+    setCurrentDevice(device);
     setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
 
     // Ne réinitialiser les sélections que si l'utilisateur n'est pas en train d'éditer
     if (!isEditingAudio) {
-      setSelectedInputDevice(currentData.device?.inputDeviceId ?? null);
-      setSelectedOutputDevice(currentData.device?.outputDeviceId ?? null);
-      setSelectedSampleRate(currentData.device?.sampleRate || 48000);
+      setSelectedInputDevice(device.inputDeviceId ?? null);
+      setSelectedOutputDevice(device.outputDeviceId ?? null);
+      setSelectedSampleRate(device.sampleRate || 48000);
     }
   };
 
@@ -189,8 +190,7 @@ function Admin() {
     setEditingGroup(group.id);
     setGroupForm({
       name: group.name,
-      audioBitrate: group.audioBitrate || 96,
-      channels: group.channels || []
+      audioBitrate: group.audioBitrate || 96
     });
     setShowGroupForm(true);
   };
@@ -198,36 +198,10 @@ function Admin() {
   const resetGroupForm = () => {
     setGroupForm({
       name: '',
-      audioBitrate: 96,
-      channels: []
+      audioBitrate: 96
     });
     setShowGroupForm(false);
     setEditingGroup(null);
-  };
-
-  const addChannel = () => {
-    setGroupForm({
-      ...groupForm,
-      channels: [
-        ...groupForm.channels,
-        { name: '', audioInput: 0, audioOutput: 0 }
-      ]
-    });
-  };
-
-  const updateChannel = (index, field, value) => {
-    const newChannels = [...groupForm.channels];
-    newChannels[index] = {
-      ...newChannels[index],
-      [field]: field === 'audioInput' || field === 'audioOutput' ? parseInt(value) : value
-    };
-    setGroupForm({ ...groupForm, channels: newChannels });
-  };
-
-  const removeChannel = (index) => {
-    const newChannels = [...groupForm.channels];
-    newChannels.splice(index, 1);
-    setGroupForm({ ...groupForm, channels: newChannels });
   };
 
   // ========== Gestion audio devices (Phase 2.5) ==========
@@ -270,8 +244,8 @@ function Admin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inputDeviceId: selectedInputDevice !== null ? parseInt(selectedInputDevice) : undefined,
-          outputDeviceId: selectedOutputDevice !== null ? parseInt(selectedOutputDevice) : undefined,
+          inputDeviceId: selectedInputDevice || undefined,
+          outputDeviceId: selectedOutputDevice || undefined,
           sampleRate: parseInt(selectedSampleRate)
         })
       });
@@ -415,43 +389,9 @@ function Admin() {
                     </label>
                   </div>
 
-                  <div className="channels-section">
-                    <div className="channels-header">
-                      <h4>Canaux audio</h4>
-                      <button type="button" onClick={addChannel} className="btn-small">
-                        + Canal
-                      </button>
-                    </div>
-
-                    {groupForm.channels.map((channel, index) => (
-                      <div key={index} className="channel-item">
-                        <input
-                          type="text"
-                          placeholder="Nom canal (ex: Principal, Backup...)"
-                          value={channel.name}
-                          onChange={(e) => updateChannel(index, 'name', e.target.value)}
-                          required
-                        />
-                        <input
-                          type="number"
-                          placeholder="Input"
-                          value={channel.audioInput}
-                          onChange={(e) => updateChannel(index, 'audioInput', e.target.value)}
-                          min="0"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Output"
-                          value={channel.audioOutput}
-                          onChange={(e) => updateChannel(index, 'audioOutput', e.target.value)}
-                          min="0"
-                        />
-                        <button type="button" onClick={() => removeChannel(index)} className="btn-danger">
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <p style={{color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginTop: 'var(--spacing-md)'}}>
+                    Le routing audio se configure dans l'onglet "Audio" via la matrice de routing.
+                  </p>
 
                   <div className="form-actions">
                     <button type="submit" className="btn-primary">
@@ -482,18 +422,7 @@ function Admin() {
 
                   <div className="group-info">
                     <span>Bitrate: {group.audioBitrate || 96} kbps</span>
-                    <span>Canaux: {group.channels?.length || 0}</span>
                   </div>
-
-                  {group.channels && group.channels.length > 0 && (
-                    <div className="channels-list">
-                      {group.channels.map(channel => (
-                        <div key={channel.id} className="channel-badge">
-                          {channel.name} (I/O: {channel.audioInput}/{channel.audioOutput})
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -514,22 +443,22 @@ function Admin() {
                   value={selectedInputDevice ?? ''}
                   onChange={(e) => {
                     setIsEditingAudio(true);
-                    setSelectedInputDevice(e.target.value === '' ? null : parseInt(e.target.value));
+                    setSelectedInputDevice(e.target.value === '' ? null : e.target.value);
                   }}
                   className="device-select"
                 >
                   <option value="">-- Sélectionner une carte --</option>
                   {audioDevices
                     .filter(d => d.maxInputChannels > 0)
-                    .map(device => (
-                      <option key={device.id} value={device.id}>
+                    .map((device, index) => (
+                      <option key={`input-${device.id}-${index}`} value={device.id}>
                         {device.name} - {device.maxInputChannels} canaux - {device.defaultSampleRate}Hz
                       </option>
                     ))}
                 </select>
-                {selectedInputDevice !== null && (
-                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>
-                    Device ID {selectedInputDevice} sélectionné
+                {selectedInputDevice !== null && selectedInputDevice !== '' && (
+                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
+                    Device ID: {selectedInputDevice}
                   </p>
                 )}
               </div>
@@ -540,22 +469,22 @@ function Admin() {
                   value={selectedOutputDevice ?? ''}
                   onChange={(e) => {
                     setIsEditingAudio(true);
-                    setSelectedOutputDevice(e.target.value === '' ? null : parseInt(e.target.value));
+                    setSelectedOutputDevice(e.target.value === '' ? null : e.target.value);
                   }}
                   className="device-select"
                 >
                   <option value="">-- Sélectionner une carte --</option>
                   {audioDevices
                     .filter(d => d.maxOutputChannels > 0)
-                    .map(device => (
-                      <option key={device.id} value={device.id}>
+                    .map((device, index) => (
+                      <option key={`output-${device.id}-${index}`} value={device.id}>
                         {device.name} - {device.maxOutputChannels} canaux - {device.defaultSampleRate}Hz
                       </option>
                     ))}
                 </select>
-                {selectedOutputDevice !== null && (
-                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>
-                    Device ID {selectedOutputDevice} sélectionné
+                {selectedOutputDevice !== null && selectedOutputDevice !== '' && (
+                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
+                    Device ID: {selectedOutputDevice}
                   </p>
                 )}
               </div>
@@ -603,9 +532,11 @@ function Admin() {
 
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)'}}>
                   <div>
-                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>Entrées (Inputs)</h4>
+                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>
+                      Entrées (Inputs) - {currentDevice.inputChannels || 0} canaux disponibles
+                    </h4>
                     <div style={{display: 'grid', gap: 'var(--spacing-sm)'}}>
-                      {Array.from({length: 8}, (_, i) => (
+                      {Array.from({length: currentDevice.inputChannels || 8}, (_, i) => (
                         <div key={`input-${i}`} style={{display: 'grid', gridTemplateColumns: '40px 1fr', gap: 'var(--spacing-sm)', alignItems: 'center'}}>
                           <span style={{color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>{i}</span>
                           <input
@@ -629,9 +560,11 @@ function Admin() {
                   </div>
 
                   <div>
-                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>Sorties (Outputs)</h4>
+                    <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>
+                      Sorties (Outputs) - {currentDevice.outputChannels || 0} canaux disponibles
+                    </h4>
                     <div style={{display: 'grid', gap: 'var(--spacing-sm)'}}>
-                      {Array.from({length: 8}, (_, i) => (
+                      {Array.from({length: currentDevice.outputChannels || 8}, (_, i) => (
                         <div key={`output-${i}`} style={{display: 'grid', gridTemplateColumns: '40px 1fr', gap: 'var(--spacing-sm)', alignItems: 'center'}}>
                           <span style={{color: 'var(--color-text-secondary)', fontSize: '0.85rem'}}>{i}</span>
                           <input
@@ -658,13 +591,14 @@ function Admin() {
 
               <AudioRoutingMatrix groups={groups} channelNames={channelNames} />
 
-              {currentDevice && Object.keys(currentDevice).length > 0 && (
+              {currentDevice && currentDevice.inputDeviceId && (
                 <div className="current-config">
                   <h3>Configuration actuelle</h3>
                   <div className="config-info">
-                    <p><strong>Input Device ID:</strong> {currentDevice.inputDeviceId ?? 'Non configuré'}</p>
-                    <p><strong>Output Device ID:</strong> {currentDevice.outputDeviceId ?? 'Non configuré'}</p>
+                    <p><strong>Input Device:</strong> {currentDevice.inputDeviceName || currentDevice.inputDeviceId}</p>
+                    <p><strong>Output Device:</strong> {currentDevice.outputDeviceName || currentDevice.outputDeviceId}</p>
                     <p><strong>Sample Rate:</strong> {currentDevice.sampleRate ?? 48000} Hz</p>
+                    <p><strong>Canaux:</strong> {currentDevice.inputChannels} entrées / {currentDevice.outputChannels} sorties</p>
                   </div>
                 </div>
               )}
@@ -683,9 +617,9 @@ function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {audioDevices.map(device => (
-                      <tr key={device.id}>
-                        <td>{device.id}</td>
+                    {audioDevices.map((device, index) => (
+                      <tr key={`${device.id}-${index}`}>
+                        <td style={{fontSize: '0.75rem', wordBreak: 'break-all', maxWidth: '200px'}}>{device.id}</td>
                         <td>{device.name}</td>
                         <td>{device.maxInputChannels}</td>
                         <td>{device.maxOutputChannels}</td>

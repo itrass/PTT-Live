@@ -10,6 +10,9 @@
  */
 
 import { EventEmitter } from 'events';
+import { getLogger } from '../utils/Logger.js';
+
+const logger = getLogger('Routing');
 
 /**
  * Représente une route audio avec gain
@@ -76,7 +79,10 @@ export class GroupAudioRouter extends EventEmitter {
    * Configure le routing depuis la config YAML
    */
   configure(routingConfig) {
-    console.log('Configuration du routing audio...');
+    logger.info('Configuration du routing audio...');
+    logger.debug('  Groupes disponibles:', this.config.groups.map(g => `${g.name || g} (id: ${g.id || g})`).join(', '));
+    logger.debug('  inputToGroup:', JSON.stringify(routingConfig.inputToGroup || {}));
+    logger.debug('  groupToOutput:', JSON.stringify(routingConfig.groupToOutput || {}));
 
     // Réinitialise les routes
     this.inputToGroupRoutes.clear();
@@ -104,7 +110,7 @@ export class GroupAudioRouter extends EventEmitter {
     }
 
     this._updateStatsActiveRoutes();
-    console.log(`Routing configuré : ${this.stats.routesActive} routes actives`);
+    logger.success(`Routing configuré : ${this.stats.routesActive} routes actives`);
     this.emit('configured', this.stats);
   }
 
@@ -128,7 +134,7 @@ export class GroupAudioRouter extends EventEmitter {
     const route = new AudioRoute(inputChannel, groupName, gainDb);
     this.inputToGroupRoutes.get(key).push(route);
 
-    console.log(`Route ajoutée : Input ${inputChannel} -> Group "${groupName}" (${gainDb}dB)`);
+    logger.info(`Input ${inputChannel} → Group "${groupName}" (${gainDb}dB)`);
     this._updateStatsActiveRoutes();
   }
 
@@ -145,7 +151,7 @@ export class GroupAudioRouter extends EventEmitter {
     const route = new AudioRoute(groupName, outputChannel, gainDb);
     this.groupToOutputRoutes.get(key).push(route);
 
-    console.log(`Route ajoutée : Group "${groupName}" -> Output ${outputChannel} (${gainDb}dB)`);
+    logger.info(`Group "${groupName}" → Output ${outputChannel} (${gainDb}dB)`);
     this._updateStatsActiveRoutes();
   }
 
@@ -205,7 +211,9 @@ export class GroupAudioRouter extends EventEmitter {
     // Réinitialise les buffers de groupe
     this.groupBuffers.clear();
     this.config.groups.forEach(group => {
-      this.groupBuffers.set(group.name, new Float32Array(this.config.frameSize));
+      // Utiliser l'ID (slugifié) plutôt que le nom pour correspondre au routing
+      const groupId = group.id || group.name || group;
+      this.groupBuffers.set(groupId, new Float32Array(this.config.frameSize));
     });
 
     // Pour chaque canal d'entrée
@@ -221,7 +229,10 @@ export class GroupAudioRouter extends EventEmitter {
       // Applique chaque route (mixage additif vers les groupes)
       routes.forEach(route => {
         const groupBuffer = this.groupBuffers.get(route.destination);
-        if (!groupBuffer) return;
+        if (!groupBuffer) {
+          logger.warn(`Buffer groupe "${route.destination}" introuvable pour routing depuis Input ${channelId}`);
+          return;
+        }
 
         // Mixage avec gain
         for (let i = 0; i < pcmData.length && i < groupBuffer.length; i++) {
@@ -235,6 +246,9 @@ export class GroupAudioRouter extends EventEmitter {
       for (let i = 0; i < buffer.length; i++) {
         if (Math.abs(buffer[i]) > 1.0) {
           this.stats.clippingEvents++;
+          if (this.stats.clippingEvents % 1000 === 1) {
+            logger.warn(`Clipping détecté sur groupe "${groupName}" (${this.stats.clippingEvents} événements)`);
+          }
           buffer[i] = Math.sign(buffer[i]) * 1.0; // Hard clipping
         }
       }
@@ -376,7 +390,7 @@ export class GroupAudioRouter extends EventEmitter {
     this.groupBuffers.clear();
     this.outputBuffers.clear();
     this.removeAllListeners();
-    console.log('GroupAudioRouter détruit');
+    logger.info('GroupAudioRouter détruit');
   }
 }
 

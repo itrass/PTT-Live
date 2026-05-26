@@ -4,30 +4,29 @@ audio:
   defaultBitrate: 96
   jitterBufferMs: 40
   device:
-    # inputDeviceId et outputDeviceId : laisser vide pour auto-détection du device par défaut
-    # ou spécifier un ID numérique pour forcer un device spécifique
-    inputDeviceId: null
-    outputDeviceId: null
+    inputDeviceId: Microphone MacBook Pro
+    outputDeviceId: Haut-parleurs MacBook Pro
     sampleRate: 48000
   routing:
     inputToGroup:
       "0":
-        - technique
-      "1":
-        - technique
-      "2":
-        - technique
+        - production
+      "1": []
+      "2": []
       "4":
         - technique
       "5":
         - technique
     groupToOutput:
       technique:
+        - "1"
+      production:
         - "0"
+        - "1"
     gains: {}
   channelNames:
     inputs:
-      "0": Micro Régisseur
+      "0": iphone
       "1": Talkback FOH
       "2": Retour Console
       "3": Liaison Scène
@@ -42,6 +41,7 @@ groups:
     audioBitrate: 96
     channels: []
   - name: Technique
+    audioBitrate: 96
     channels: []
   - name: Sonorisation
     audioBitrate: 128
@@ -50,8 +50,8 @@ server:
   host: 0.0.0.0
   port: 3000
   livekit:
-    url: ws://localhost:7880
+    url: ws://192.168.0.146:7880
 logging:
-  level: debug
-  logLatency: true
-  logAudioStats: true
+  level: info  # Changez à 'debug' pour voir plus de détails
+  logLatency: false
+  logAudioStats: false
