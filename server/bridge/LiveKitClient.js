@@ -86,35 +86,21 @@ export class LiveKitClient extends EventEmitter {
    */
   async _createAudioSource() {
     try {
-      // Debug: afficher les valeurs avant conversion
+      // Conversion explicite en int32 pour l'API LiveKit
       const sampleRate = parseInt(this.options.sampleRate, 10);
       const channels = parseInt(this.options.channels, 10);
 
-      console.log('🔍 DEBUG AudioSource:', {
-        sampleRateOriginal: this.options.sampleRate,
-        sampleRateType: typeof this.options.sampleRate,
-        sampleRateConverted: sampleRate,
-        sampleRateConvertedType: typeof sampleRate,
-        channelsOriginal: this.options.channels,
-        channelsType: typeof this.options.channels,
-        channelsConverted: channels,
-        channelsConvertedType: typeof channels
-      });
-
-      // Création de l'AudioSource (conversion en int32 explicite)
+      // Création de l'AudioSource
       this.audioSource = new AudioSource(sampleRate, channels);
-      console.log('✓ AudioSource créée:', this.audioSource);
 
       // Création du LocalAudioTrack depuis l'AudioSource
       const localTrack = LocalAudioTrack.createAudioTrack('bridge-audio', this.audioSource);
-      console.log('✓ LocalAudioTrack créé:', localTrack);
 
       // Publication du track
       const options = {
         source: TrackSource.SOURCE_MICROPHONE // Simule un microphone pour les clients
       };
 
-      console.log('🔍 DEBUG publishTrack options:', options);
       this.localAudioTrack = await this.room.localParticipant.publishTrack(
         localTrack,
         options

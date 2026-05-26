@@ -65,6 +65,13 @@ export class AudioBridge extends EventEmitter {
     this.inputChannelBuffers = new Map(); // Map<channelId, Float32Array>
     this.groupBuffersFromLiveKit = new Map(); // Map<groupName, Float32Array>
 
+    // Pool de buffers pré-alloués pour éviter allocations répétées
+    this.bufferPool = {
+      float32: [], // Pool de Float32Array réutilisables
+      pcm: []      // Pool de Buffer PCM réutilisables
+    };
+    this.maxPoolSize = 50; // Limite du pool (adapté pour 30+ clients)
+
     // Statistiques
     this.stats = {
       startTime: null,
@@ -323,7 +330,14 @@ export class AudioBridge extends EventEmitter {
 
     this.liveKitClient.on('audioTrackSubscribed', ({ track, participant }) => {
       console.log(`🎵 Nouveau track audio : ${participant.identity}`);
-      this._handleRemoteAudioTrack(track);
+    });
+
+    // Réception audio depuis les clients LiveKit
+    this.liveKitClient.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
+      // Pour l'instant, on route vers le groupe principal
+      // TODO: Mapper les participants aux groupes selon la configuration
+      const groupName = 'Equipe'; // Groupe par défaut
+      this.emit('groupAudioIn', { groupName, pcmBuffer: pcmData });
     });
 
     await this.liveKitClient.connect();
@@ -364,10 +378,13 @@ export class AudioBridge extends EventEmitter {
             this.stats.framesCapture++;
             this.stats.bytesEncoded += opusData.length;
 
-            // TODO: Envoyer opusData à LiveKit pour ce groupe spécifique
-            // this.liveKitClient.sendAudioToGroup(groupName, opusData);
+            // Envoi vers LiveKit via sendAudioData (prend du PCM, pas de l'Opus)
+            // Note: LiveKit gère lui-même l'encodage Opus en interne
+            if (this.liveKitClient && this.liveKitClient.connected) {
+              this.liveKitClient.sendAudioData(pcmBuffer);
+            }
 
-            // Pour Phase 3, on émet un événement que le système d'intégration LiveKit écoutera
+            // Émettre aussi pour monitoring/debug
             this.emit('groupAudioOut', { groupName, opusData, pcmBuffer });
           }
         });
@@ -418,26 +435,55 @@ export class AudioBridge extends EventEmitter {
   }
 
   /**
-   * Gère l'arrivée d'un track audio distant
-   * @param {RemoteAudioTrack} track - Track LiveKit
+   * Acquiert un Float32Array depuis le pool ou en crée un nouveau
+   * @param {number} size - Taille du buffer
+   * @returns {Float32Array}
    * @private
    */
-  _handleRemoteAudioTrack(track) {
-    // Récupération du MediaStream du track
-    const mediaStream = new MediaStream([track.mediaStreamTrack]);
+  _acquireFloat32Buffer(size) {
+    const pooled = this.bufferPool.float32.find(b => b.length === size);
+    if (pooled) {
+      this.bufferPool.float32.splice(this.bufferPool.float32.indexOf(pooled), 1);
+      return pooled;
+    }
+    return new Float32Array(size);
+  }
 
-    // Note: Pour décoder Opus côté serveur, on aurait besoin d'accéder
-    // aux données brutes via DataChannel ou API bas niveau
-    // LiveKit gère nativement le décodage WebRTC → PCM dans le navigateur
+  /**
+   * Retourne un Float32Array au pool pour réutilisation
+   * @param {Float32Array} buffer
+   * @private
+   */
+  _releaseFloat32Buffer(buffer) {
+    if (this.bufferPool.float32.length < this.maxPoolSize) {
+      this.bufferPool.float32.push(buffer);
+    }
+  }
 
-    // Pour un vrai bridge serveur, il faudrait :
-    // 1. Recevoir les paquets Opus via DataChannel ou API custom
-    // 2. Décoder avec opusDecoder
-    // 3. Envoyer au jitterBuffer
-    // 4. Lire depuis jitterBuffer vers CoreAudio
+  /**
+   * Acquiert un Buffer PCM depuis le pool ou en crée un nouveau
+   * @param {number} size - Taille du buffer
+   * @returns {Buffer}
+   * @private
+   */
+  _acquirePcmBuffer(size) {
+    const pooled = this.bufferPool.pcm.find(b => b.length === size);
+    if (pooled) {
+      this.bufferPool.pcm.splice(this.bufferPool.pcm.indexOf(pooled), 1);
+      return pooled;
+    }
+    return Buffer.alloc(size);
+  }
 
-    // TODO: Implémenter réception bas niveau Opus depuis LiveKit
-    console.warn('Réception track distant : implémentation complète en cours');
+  /**
+   * Retourne un Buffer PCM au pool pour réutilisation
+   * @param {Buffer} buffer
+   * @private
+   */
+  _releasePcmBuffer(buffer) {
+    if (this.bufferPool.pcm.length < this.maxPoolSize) {
+      this.bufferPool.pcm.push(buffer);
+    }
   }
 
   /**
@@ -448,7 +494,7 @@ export class AudioBridge extends EventEmitter {
    */
   _bufferToFloat32(buffer) {
     const samples = buffer.length / 2; // 2 bytes per sample (16-bit)
-    const float32 = new Float32Array(samples);
+    const float32 = this._acquireFloat32Buffer(samples);
 
     for (let i = 0; i < samples; i++) {
       // Lire 16-bit signed little-endian
@@ -467,7 +513,7 @@ export class AudioBridge extends EventEmitter {
    * @private
    */
   _float32ToBuffer(float32) {
-    const buffer = Buffer.alloc(float32.length * 2); // 2 bytes per sample
+    const buffer = this._acquirePcmBuffer(float32.length * 2); // 2 bytes per sample
 
     for (let i = 0; i < float32.length; i++) {
       // Clamping [-1.0, 1.0]
@@ -524,6 +570,10 @@ export class AudioBridge extends EventEmitter {
     // Nettoyer les buffers
     this.inputChannelBuffers.clear();
     this.groupBuffersFromLiveKit.clear();
+
+    // Nettoyer le pool de buffers
+    this.bufferPool.float32 = [];
+    this.bufferPool.pcm = [];
 
     this.isRunning = false;
 

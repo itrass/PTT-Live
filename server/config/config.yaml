@@ -4,11 +4,15 @@ audio:
   defaultBitrate: 96
   jitterBufferMs: 40
   device:
-    inputDeviceId: 1
-    outputDeviceId: 0
+    # inputDeviceId et outputDeviceId : laisser vide pour auto-détection du device par défaut
+    # ou spécifier un ID numérique pour forcer un device spécifique
+    inputDeviceId: null
+    outputDeviceId: null
     sampleRate: 48000
   routing:
     inputToGroup:
+      "0":
+        - technique
       "1":
         - technique
       "2":
@@ -17,7 +21,9 @@ audio:
         - technique
       "5":
         - technique
-    groupToOutput: {}
+    groupToOutput:
+      technique:
+        - "0"
     gains: {}
   channelNames:
     inputs:
