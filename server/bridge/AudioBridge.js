@@ -13,6 +13,8 @@
 import { EventEmitter } from 'events';
 import { platform } from 'os';
 import CoreAudioBackend from './backends/CoreAudioBackend.js';
+import JACKBackend from './backends/JACKBackend.js';
+import PipeWireBackend from './backends/PipeWireBackend.js';
 import OpusCodec, { OpusPresets } from './OpusCodec.js';
 import JitterBuffer, { JitterBufferPresets } from './JitterBuffer.js';
 import LiveKitClient from './LiveKitClient.js';
@@ -123,27 +125,52 @@ export class AudioBridge extends EventEmitter {
    */
   async _initAudioBackend() {
     const os = platform();
+    let BackendClass = null;
+    let devices = [];
 
     // macOS : CoreAudio prioritaire
     if (os === 'darwin') {
       if (CoreAudioBackend.isAvailable()) {
         this.backendType = 'CoreAudio';
-        this.audioBackend = new CoreAudioBackend({
-          sampleRate: this.options.sampleRate,
-          channels: this.options.channels,
-          framesPerBuffer: this.options.frameSize,
-          inputDeviceId: this.options.inputDeviceId,
-          outputDeviceId: this.options.outputDeviceId
-        });
-
+        BackendClass = CoreAudioBackend;
         console.log('✓ Backend audio : CoreAudio (macOS natif)');
       } else {
         throw new Error('CoreAudio non disponible sur ce système');
       }
     }
-    // Linux : JACK ou PipeWire (Phase 3)
+    // Linux : PipeWire > JACK (ordre de préférence)
     else if (os === 'linux') {
-      throw new Error('Support Linux non encore implémenté (Phase 3)');
+      // Détection automatique : préfère PipeWire (moderne) puis JACK (pro)
+      if (PipeWireBackend.isAvailable() && PipeWireBackend.isServerRunning()) {
+        this.backendType = 'PipeWire';
+        BackendClass = PipeWireBackend;
+        console.log('✓ Backend audio : PipeWire (Linux moderne)');
+      } else if (JACKBackend.isAvailable() && JACKBackend.isServerRunning()) {
+        this.backendType = 'JACK';
+        BackendClass = JACKBackend;
+        console.log('✓ Backend audio : JACK (Linux professionnel)');
+      } else {
+        // Aucun backend disponible
+        const pipewireInstalled = PipeWireBackend.isAvailable();
+        const jackInstalled = JACKBackend.isAvailable();
+
+        let errorMsg = 'Aucun backend audio disponible sur Linux.\n';
+
+        if (!pipewireInstalled && !jackInstalled) {
+          errorMsg += 'Installez PipeWire (recommandé) ou JACK :\n';
+          errorMsg += '  Ubuntu/Debian : sudo apt install pipewire pipewire-pulse\n';
+          errorMsg += '  Arch Linux : sudo pacman -S pipewire pipewire-pulse\n';
+          errorMsg += '  JACK : sudo apt install jackd2 jack-tools';
+        } else if (pipewireInstalled && !PipeWireBackend.isServerRunning()) {
+          errorMsg += 'PipeWire installé mais non démarré.\n';
+          errorMsg += 'Démarrez-le : systemctl --user start pipewire pipewire-pulse';
+        } else if (jackInstalled && !JACKBackend.isServerRunning()) {
+          errorMsg += 'JACK installé mais serveur non démarré.\n';
+          errorMsg += 'Démarrez-le : jackd -d alsa -r 48000';
+        }
+
+        throw new Error(errorMsg);
+      }
     }
     // Windows : WASAPI (futur)
     else if (os === 'win32') {
@@ -153,8 +180,19 @@ export class AudioBridge extends EventEmitter {
       throw new Error(`Plateforme non supportée : ${os}`);
     }
 
+    // Initialisation du backend sélectionné
+    this.audioBackend = new BackendClass({
+      sampleRate: this.options.sampleRate,
+      channels: this.options.channels,
+      framesPerBuffer: this.options.frameSize,
+      inputDeviceId: this.options.inputDeviceId,
+      outputDeviceId: this.options.outputDeviceId,
+      // Options spécifiques PipeWire
+      latency: this.options.latency || 20
+    });
+
     // Liste des devices disponibles
-    const devices = CoreAudioBackend.getDevices();
+    devices = BackendClass.getDevices();
     console.log(`📻 Devices audio détectés : ${devices.length}`);
     devices.forEach(d => {
       console.log(`  - ${d.name} (in:${d.maxInputChannels}, out:${d.maxOutputChannels})`);

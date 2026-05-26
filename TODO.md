@@ -1,7 +1,7 @@
 # TODO.md - Plan de développement PTT Live
 
-**Dernière mise à jour** : 2026-05-25
-**Phase actuelle** : PHASE 2 - Fonctionnalités professionnelles (Phase 2.5 TERMINÉE - Configuration audio visuelle complète)
+**Dernière mise à jour** : 2026-05-26
+**Phase actuelle** : PHASE 3 - Intégrations audio pro (Phase 3.1 EN COURS - Support Linux)
 
 ---
 
@@ -215,9 +215,9 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 ## PHASE 3 — Intégrations audio pro
 
 ### 3.1 Support Linux
-- [ ] Backend JACK (server/bridge/backends/JACKBackend.js)
-- [ ] Backend PipeWire (server/bridge/backends/PipeWireBackend.js)
-- [ ] Script install/linux.sh
+- [x] Backend JACK (server/bridge/backends/JACKBackend.js)
+- [x] Backend PipeWire (server/bridge/backends/PipeWireBackend.js)
+- [x] Script install/linux.sh
 - [ ] Tests Ubuntu 22.04 LTS + Arch Linux
 
 ### 3.2 Dante
@@ -255,10 +255,14 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 5. ✅ Préférences utilisateur pour mode PTT par défaut (2.2)
 6. ✅ Web Push notifications pour appels privés (2.4)
 
-### Phase 3 - Préparation
-- Support Linux (JACK/PipeWire backends)
-- Intégration Dante/AES67
-- Tests charge 30+ clients
+### Phase 3 - EN COURS
+1. ✅ Backend JACK pour Linux (3.1)
+2. ✅ Backend PipeWire pour Linux moderne (3.1)
+3. ✅ Détection automatique backend Linux dans AudioBridge (3.1)
+4. ✅ Script d'installation Linux (Ubuntu/Debian/Arch) (3.1)
+5. ⏳ Tests sur Ubuntu 22.04 LTS et Arch Linux (3.1)
+6. Documentation setup Dante/AES67 (3.2/3.3)
+7. Tests charge 30+ clients (3.4)
 
 ---
 
