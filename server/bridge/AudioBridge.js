@@ -311,7 +311,8 @@ export class AudioBridge extends EventEmitter {
       console.log('✓ LiveKit connecté');
     });
 
-    this.liveKitClient.on('disconnected', ({ reason }) => {
+    this.liveKitClient.on('disconnected', (data) => {
+      const reason = data?.reason || 'unknown';
       console.warn('⚠️  LiveKit déconnecté:', reason);
       this.stats.errors.network++;
     });

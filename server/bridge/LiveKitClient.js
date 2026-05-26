@@ -143,10 +143,10 @@ export class LiveKitClient extends EventEmitter {
     });
 
     // Déconnexion
-    this.room.on(RoomEvent.Disconnected, () => {
-      console.log('⚠ Room déconnectée');
+    this.room.on(RoomEvent.Disconnected, (reason) => {
+      console.log('⚠ Room déconnectée:', reason);
       this.isConnected = false;
-      this.emit('disconnected');
+      this.emit('disconnected', { reason: reason || 'unknown' });
     });
 
     // Participants
@@ -331,7 +331,7 @@ export class LiveKitClient extends EventEmitter {
       this.isConnected = false;
       this.remoteParticipants.clear();
       console.log('✓ Déconnecté de LiveKit');
-      this.emit('disconnected');
+      this.emit('disconnected', { reason: 'manual' });
     }
   }
 
