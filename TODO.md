@@ -221,14 +221,14 @@ Valider la faisabilité technique : 2-4 clients, PTT basique, latence < 150ms, m
 - [ ] Tests Ubuntu 22.04 LTS + Arch Linux
 
 ### 3.2 Dante
-- [ ] Documentation setup DVS macOS
-- [ ] Routing JACK ↔ DVS
+- [x] Documentation setup DVS macOS
+- [x] Guide configuration réseau Dante
+- [ ] Routing JACK ↔ DVS (tests pratiques)
 - [ ] Tests multi-canaux (8+)
-- [ ] Guide configuration réseau Dante
 
 ### 3.3 AES67
-- [ ] Backend RTP multicast (Linux)
-- [ ] PTP sync
+- [x] Documentation setup AES67 + PTP sync
+- [ ] Backend RTP multicast (Linux) - optionnel, driver Merging RAVENNA suffit
 - [ ] Tests interop Dante (mode AES67)
 
 ### 3.4 Production
