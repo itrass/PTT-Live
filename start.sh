@@ -192,6 +192,7 @@ else
   echo -e "${YELLOW}   (Cliquez sur 'Avancé' puis 'Continuer')${NC}"
   echo ""
   echo "🎛️  Interface admin : https://localhost:3000/admin"
+  echo "📊 API serveur : https://localhost:3000/api"
   echo ""
   echo "📝 Logs serveur : tail -f server.log"
   echo ""

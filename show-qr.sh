@@ -27,11 +27,11 @@ NETWORK_IP=$(get_network_ip)
 
 # Déterminer l'URL selon mode dev ou prod
 if [ -d "client/dist" ] && [ "$1" != "--dev" ]; then
-  # Mode production
-  URL="http://${NETWORK_IP}:3000"
+  # Mode production (HTTPS)
+  URL="https://${NETWORK_IP}:3000"
   MODE="production"
 else
-  # Mode dev
+  # Mode dev (HTTPS)
   URL="https://${NETWORK_IP}:5173"
   MODE="dev"
 fi

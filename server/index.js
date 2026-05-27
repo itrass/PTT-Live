@@ -221,11 +221,14 @@ app.use('/admin', adminRouter);
 
 // ========== Routes API ==========
 
+// Créer un router pour les routes API
+const apiRouter = express.Router();
+
 /**
  * GET /config
  * Retourne la configuration des groupes
  */
-app.get('/config', (req, res) => {
+apiRouter.get('/config', (req, res) => {
   try {
     const clientConfig = {
       groups: config.groups.map(g => ({
@@ -249,7 +252,7 @@ app.get('/config', (req, res) => {
  * GET /groups
  * Retourne la liste des groupes disponibles (simplifié)
  */
-app.get('/groups', (req, res) => {
+apiRouter.get('/groups', (req, res) => {
   try {
     const groups = config.groups.map(g => ({
       id: g.id,
@@ -268,7 +271,7 @@ app.get('/groups', (req, res) => {
  * Génère un token LiveKit pour un client
  * Body: { username: string, groupId: string }
  */
-app.post('/token', async (req, res) => {
+apiRouter.post('/token', async (req, res) => {
   try {
     const { username, groupId } = req.body;
 
@@ -347,7 +350,7 @@ app.post('/token', async (req, res) => {
  * GET /health
  * Health check
  */
-app.get('/health', (req, res) => {
+apiRouter.get('/health', (req, res) => {
   const isLivekitRunning = livekitProcess !== null;
   res.json({
     status: isLivekitRunning ? 'ok' : 'degraded',
@@ -355,6 +358,10 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Monter le router API sous /api ET à la racine (rétrocompatibilité)
+app.use('/api', apiRouter);
+app.use(apiRouter); // Routes accessibles aussi sans préfixe /api
 
 /**
  * GET /
