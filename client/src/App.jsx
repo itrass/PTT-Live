@@ -100,11 +100,17 @@ function App() {
 
       const data = await response.json();
 
-      // Utiliser directement l'URL LiveKit fournie par le serveur
-      const livekitUrl = data.url;
+      // En mode dev (HTTPS via Vite), utiliser le proxy WebSocket
+      // En mode prod (HTTP direct), utiliser l'URL LiveKit directement
+      let livekitUrl = data.url;
+
+      if (import.meta.env.DEV && window.location.protocol === 'https:') {
+        // Mode dev avec Vite : utiliser le proxy WSS
+        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
+      }
 
       console.log('🔗 Connexion LiveKit:', livekitUrl);
-      console.log('📝 Token:', data.token.substring(0, 50) + '...');
+      console.log('📝 Mode:', import.meta.env.DEV ? 'dev' : 'prod');
 
       // Se connecter à LiveKit avec les canaux virtuels
       await connect(livekitUrl, data.token, data.virtualChannels || []);
