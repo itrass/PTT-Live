@@ -42,8 +42,11 @@ echo "📱 QR Code PTT Live ($MODE)"
 echo "==================================${NC}"
 echo ""
 
-# Générer le QR code avec npx (pas besoin d'installer globalement)
-npx --yes qrcode-terminal "$URL" 2>/dev/null
+# Générer le QR code avec le package installé dans server/
+(cd server && node -e "
+const qrcode = require('qrcode-terminal');
+qrcode.generate('$URL', { small: true });
+")
 
 echo ""
 echo -e "${GREEN}🔗 URL : $URL${NC}"
