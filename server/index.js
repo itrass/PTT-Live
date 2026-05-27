@@ -187,6 +187,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// ========== Servir fichiers statiques client (production) ==========
+
+// En production, servir le build client depuis ../client/dist
+import { existsSync } from 'fs';
+const clientDistPath = join(__dirname, '..', 'client', 'dist');
+
+if (existsSync(clientDistPath)) {
+  log('info', `📦 Serveur statique activé : ${clientDistPath}`);
+  app.use(express.static(clientDistPath));
+} else {
+  log('debug', '📦 Pas de build client (mode dev)');
+}
+
 // ========== Routes Admin ==========
 
 // Monter les routes admin sous /admin
@@ -331,20 +344,28 @@ app.get('/health', (req, res) => {
 
 /**
  * GET /
- * Info serveur
+ * Info serveur OU client PWA (si build existe)
  */
 app.get('/', (req, res) => {
-  res.json({
-    name: 'PTT Live Server',
-    version: '0.1.0',
-    phase: 'Phase 1 - MVP',
-    endpoints: [
-      'GET  /config - Configuration groupes',
-      'GET  /groups - Liste des groupes',
-      'POST /token  - Générer token client',
-      'GET  /health - Health check'
-    ]
-  });
+  // Si build client existe, servir index.html
+  const indexPath = join(clientDistPath, 'index.html');
+  if (existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    // Sinon, afficher info API
+    res.json({
+      name: 'PTT Live Server',
+      version: '0.2.0',
+      mode: 'development',
+      endpoints: [
+        'GET  /config - Configuration groupes',
+        'GET  /groups - Liste des groupes',
+        'POST /token  - Générer token client',
+        'GET  /health - Health check',
+        'GET  /admin - Interface administration'
+      ]
+    });
+  }
 });
 
 // ========== Démarrage ==========
