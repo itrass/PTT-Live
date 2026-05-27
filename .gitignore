@@ -8,6 +8,13 @@ pnpm-lock.yaml
 .env
 .env.local
 .env.*.local
+server/.env
+client/.env
+
+# Keep .env.example files (templates)
+!.env.example
+!client/.env.example
+!server/.env.example
 
 # Build outputs
 dist/
@@ -43,3 +50,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+server.log
+
+# Runtime files
+/tmp/ptt-live.pid
