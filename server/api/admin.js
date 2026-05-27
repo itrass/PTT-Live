@@ -664,4 +664,124 @@ router.post('/audio/device', (req, res) => {
   }
 });
 
+/**
+ * GET /admin/devices/list
+ * Liste tous les devices audio disponibles (auto-détection)
+ * Supporte macOS (CoreAudio), Linux (JACK/PipeWire), Windows (WASAPI)
+ */
+router.get('/devices/list', async (req, res) => {
+  try {
+    const devices = {
+      inputs: [],
+      outputs: [],
+      platform: process.platform
+    };
+
+    // Détection selon la plateforme
+    if (process.platform === 'darwin') {
+      // macOS : utiliser CoreAudio via sox
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execPromise = promisify(exec);
+
+      try {
+        // Utiliser sox pour lister les devices audio
+        const { stdout } = await execPromise('sox -V6 2>&1');
+
+        // Parser la sortie sox pour extraire les devices
+        // Format typique : "Input Device [0]: MacBook Pro Microphone"
+        const inputMatches = stdout.matchAll(/Input Device \[(\d+)\]: (.+)/g);
+        const outputMatches = stdout.matchAll(/Output Device \[(\d+)\]: (.+)/g);
+
+        for (const match of inputMatches) {
+          devices.inputs.push({
+            id: parseInt(match[1], 10),
+            name: match[2].trim()
+          });
+        }
+
+        for (const match of outputMatches) {
+          devices.outputs.push({
+            id: parseInt(match[1], 10),
+            name: match[2].trim()
+          });
+        }
+      } catch (soxError) {
+        console.warn('⚠️  sox non disponible, devices limités:', soxError.message);
+
+        // Fallback : devices par défaut macOS
+        devices.inputs.push({ id: 0, name: 'Default Input (Built-in Microphone)', isDefault: true });
+        devices.outputs.push({ id: 0, name: 'Default Output (Built-in Speakers)', isDefault: true });
+      }
+
+    } else if (process.platform === 'linux') {
+      // Linux : JACK ou PipeWire
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execPromise = promisify(exec);
+
+      try {
+        // Essayer JACK d'abord
+        const { stdout: jackPorts } = await execPromise('jack_lsp 2>/dev/null || echo ""');
+
+        if (jackPorts.trim()) {
+          // Parser les ports JACK
+          const ports = jackPorts.split('\n').filter(Boolean);
+
+          ports.forEach(port => {
+            if (port.includes('capture')) {
+              devices.inputs.push({ id: port, name: port });
+            } else if (port.includes('playback')) {
+              devices.outputs.push({ id: port, name: port });
+            }
+          });
+        } else {
+          // Fallback : PipeWire via pactl
+          const { stdout: paDevices } = await execPromise('pactl list short sources 2>/dev/null || echo ""');
+          const { stdout: paSinks } = await execPromise('pactl list short sinks 2>/dev/null || echo ""');
+
+          if (paDevices.trim()) {
+            paDevices.split('\n').filter(Boolean).forEach((line, idx) => {
+              const name = line.split('\t')[1] || `Device ${idx}`;
+              devices.inputs.push({ id: idx, name });
+            });
+          }
+
+          if (paSinks.trim()) {
+            paSinks.split('\n').filter(Boolean).forEach((line, idx) => {
+              const name = line.split('\t')[1] || `Device ${idx}`;
+              devices.outputs.push({ id: idx, name });
+            });
+          }
+        }
+      } catch (linuxError) {
+        console.warn('⚠️  Détection devices Linux échouée:', linuxError.message);
+        devices.inputs.push({ id: 0, name: 'Default Input', isDefault: true });
+        devices.outputs.push({ id: 0, name: 'Default Output', isDefault: true });
+      }
+
+    } else if (process.platform === 'win32') {
+      // Windows : WASAPI (Phase 3)
+      // TODO: implémenter détection WASAPI
+      devices.inputs.push({ id: 0, name: 'Default Input (Windows)', isDefault: true });
+      devices.outputs.push({ id: 0, name: 'Default Output (Windows)', isDefault: true });
+    }
+
+    addLog('info', 'Audio devices listed', {
+      inputsCount: devices.inputs.length,
+      outputsCount: devices.outputs.length
+    });
+
+    res.json(devices);
+
+  } catch (error) {
+    console.error('Erreur GET /admin/devices/list:', error);
+    res.status(500).json({
+      error: 'Failed to list audio devices',
+      message: error.message,
+      platform: process.platform
+    });
+  }
+});
+
 export default router;

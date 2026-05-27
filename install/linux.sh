@@ -222,6 +222,61 @@ install_node_deps() {
     echo "Dépendances Node.js installées !"
 }
 
+# Configuration réseau et génération .env
+configure_network() {
+    echo ""
+    echo "Configuration réseau..."
+
+    # Détection IP réseau
+    NETWORK_IP=$(hostname -I | awk '{print $1}')
+
+    if [ -z "$NETWORK_IP" ]; then
+        echo "⚠️  IP réseau non détectée, utilisation localhost"
+        NETWORK_IP="localhost"
+    else
+        echo "✓ IP réseau détectée : ${NETWORK_IP}"
+    fi
+
+    # Générer .env serveur
+    echo "Génération configuration serveur..."
+
+    cat > "$PROJECT_ROOT/server/.env" << EOF
+# Configuration PTT Live Server
+# Généré automatiquement par install/linux.sh
+
+USE_LOCAL_LIVEKIT=true
+
+# LiveKit Configuration
+# AUTO = détection automatique IP réseau au démarrage
+LIVEKIT_URL=AUTO
+# En mode --dev, LiveKit utilise ces clés par défaut
+LIVEKIT_API_KEY=devkey
+LIVEKIT_API_SECRET=secret
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+EOF
+
+    echo "✓ Configuration serveur générée (server/.env)"
+
+    # Générer .env client
+    echo "Génération configuration client..."
+
+    cat > "$PROJECT_ROOT/client/.env" << EOF
+# Configuration PTT Live Client
+# Généré automatiquement par install/linux.sh
+
+# En développement local, utilise le proxy Vite
+VITE_API_URL=/api
+
+# Pour accès réseau (autres devices), décommentez et mettez l'IP du serveur :
+# VITE_API_URL=http://${NETWORK_IP}:3000
+EOF
+
+    echo "✓ Configuration client générée (client/.env)"
+}
+
 # Configuration audio
 configure_audio() {
     echo ""
@@ -259,10 +314,10 @@ configure_audio() {
 print_summary() {
     echo ""
     echo "========================================"
-    echo "  Installation terminée !"
+    echo "  ✅ Installation terminée !"
     echo "========================================"
     echo ""
-    echo "Prochaines étapes :"
+    echo "📝 Prochaines étapes :"
     echo ""
     echo "1. Démarrer le serveur :"
     echo "   cd $PROJECT_ROOT/server"
@@ -272,10 +327,18 @@ print_summary() {
     echo "   cd $PROJECT_ROOT/client"
     echo "   npm run dev"
     echo ""
-    echo "3. Accéder à l'interface :"
-    echo "   http://localhost:5173"
+    echo "3. Accéder à l'application :"
+    echo "   • Développement local : http://localhost:5173"
+    echo "   • Depuis autre appareil (WiFi) : http://${NETWORK_IP}:5173"
     echo ""
-    echo "Documentation : $PROJECT_ROOT/README.md"
+    echo "💡 Configuration réseau :"
+    echo "   IP serveur détectée : ${NETWORK_IP}"
+    echo "   LiveKit URL : AUTO (détection dynamique)"
+    echo ""
+    echo "📖 Documentation :"
+    echo "   • README.md - Guide complet"
+    echo "   • README-PORTABLE.md - Déploiement portable"
+    echo ""
     echo "========================================"
     echo ""
 }
@@ -286,6 +349,7 @@ main() {
     install_system_deps
     install_livekit_server
     install_node_deps
+    configure_network
     configure_audio
     print_summary
 }
