@@ -8,20 +8,43 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 
 ## 🚀 Démarrage rapide
 
-### Prérequis
+### Installation Automatique (Recommandé)
 
-- Node.js 20+ ([télécharger](https://nodejs.org))
-- Compte LiveKit Cloud gratuit ([créer ici](https://cloud.livekit.io))
+**Un seul script pour tout installer** (détection automatique macOS/Linux) :
 
-### Installation (5 minutes)
+```bash
+# Lancer l'installation portable
+./install.sh
 
-1. **Installer les dépendances**
+# Démarrer le système
+./start.sh --dev
+```
+
+✨ **L'installeur configure automatiquement** :
+- LiveKit Server local (pas besoin de compte cloud)
+- Détection et configuration IP réseau
+- Backends audio (sox/PipeWire/JACK selon OS)
+- Toutes les dépendances
+
+📖 **Guide portable complet** : [README-PORTABLE.md](README-PORTABLE.md)
+
+---
+
+### Installation Manuelle (avec LiveKit Cloud)
+
+**Alternative si vous préférez utiliser LiveKit Cloud**
+
+1. **Prérequis**
+   - Node.js 20+ ([télécharger](https://nodejs.org))
+   - Compte LiveKit Cloud gratuit ([créer ici](https://cloud.livekit.io))
+
+2. **Installer les dépendances**
    ```bash
    cd server && npm install
    cd ../client && npm install
    ```
 
-2. **Configurer LiveKit Cloud**
+3. **Configurer LiveKit Cloud**
 
    - Créer compte sur https://cloud.livekit.io
    - Créer un projet
@@ -35,7 +58,7 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
    USE_LOCAL_LIVEKIT=false
    ```
 
-3. **Démarrer**
+4. **Démarrer**
 
    Terminal 1 :
    ```bash
@@ -47,13 +70,13 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
    cd client && npm run dev
    ```
 
-4. **Tester** : http://localhost:5173
+5. **Tester** : https://localhost:5173
 
    - Se connecter avec votre nom
    - Ouvrir second onglet avec autre nom
    - Maintenir bouton PTT pour parler !
 
-📖 **Guide complet** : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
+📖 **Guide LiveKit Cloud** : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 ---
 
@@ -84,6 +107,8 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 ## 📚 Documentation
 
+- **[README-PORTABLE.md](README-PORTABLE.md)** - 🆕 **Guide déploiement portable** (zéro config)
+- **[NETWORK_SETUP.md](NETWORK_SETUP.md)** - Configuration réseau multi-appareils
 - **[docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)** - Configuration LiveKit (Cloud + Local)
 - **[CLAUDE.md](CLAUDE.md)** - Documentation développement complète
 - **[TODO.md](TODO.md)** - Progression des phases
@@ -92,13 +117,12 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 ## 🎯 État du projet
 
-- ✅ **Phase 1.1** : Infrastructure
-- ✅ **Phase 1.2** : Serveur + API REST
-- ⏳ **Phase 1.3** : Bridge audio macOS
-- ✅ **Phase 1.4** : Client PWA React
-- ⏳ **Phase 1.5** : Tests validation
+- ✅ **Phase 1** : MVP fonctionnel (WebRTC + PTT)
+- ✅ **Phase 2** : Fonctionnalités avancées (groupes, routing, admin)
+- 🆕 **Portable** : Installation zéro-config macOS/Linux
+- ⏳ **Phase 3** : Intégrations audio pro (Dante, AES67)
 
-**Version actuelle** : 0.1.0 (Phase 1 MVP en cours)
+**Version actuelle** : 0.2.0 (Portable - production-ready)
 
 ---
 
