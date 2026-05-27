@@ -107,8 +107,16 @@ cd ..
 # Attendre que le serveur soit prêt
 echo ""
 echo -e "${YELLOW}⏳ Attente démarrage serveur...${NC}"
+
+# Déterminer le protocole selon le mode
+if [ "$1" != "--dev" ]; then
+  HEALTH_URL="https://localhost:3000/health"
+else
+  HEALTH_URL="http://localhost:3000/health"
+fi
+
 for i in {1..30}; do
-  if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+  if curl -kssf "$HEALTH_URL" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Serveur prêt${NC}"
     break
   fi
