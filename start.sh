@@ -71,17 +71,20 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# Démarrer le serveur en arrière-plan
+# Démarrer le serveur (affiche QR code puis redirige vers log)
 echo -e "${BLUE}🔧 Démarrage serveur...${NC}"
+echo ""
+
 cd server
-npm start > ../server.log 2>&1 &
+
+# Lancer le serveur avec tee pour capturer ET afficher la sortie
+npm start 2>&1 | tee ../server.log &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 cd ..
 
-echo -e "${GREEN}✓ Serveur démarré (PID: $SERVER_PID)${NC}"
-
 # Attendre que le serveur soit prêt
+echo ""
 echo -e "${YELLOW}⏳ Attente démarrage serveur...${NC}"
 for i in {1..30}; do
   if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
