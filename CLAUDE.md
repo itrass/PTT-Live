@@ -204,23 +204,47 @@ PTT Live/
 ## Commandes de développement
 
 ```bash
-# Installation initiale
-./install/macos.sh
+# Installation automatique (recommandé)
+./install.sh  # Détecte OS, configure tout automatiquement
 
-# Serveur (dev)
+# Démarrage rapide
+./start.sh --dev  # Mode développement
+./start.sh        # Mode production
+
+# OU manuellement (deux terminaux)
+# Serveur
 cd server
 npm install
 npm run dev
 
-# Client (dev)
+# Client
 cd client
 npm install
 npm run dev
-
-# Production
-cd server
-npm start
 ```
+
+## Fonctionnalités de portabilité (v0.2.1)
+
+### Installation zéro-config
+- **Script multi-OS** : `install.sh` détecte automatiquement macOS/Linux
+- **Auto-détection IP** : Génère les `.env` avec l'IP réseau du serveur
+- **Devices audio** : API `/admin/devices/list` pour énumérer devices disponibles
+- **Templates** : `.env.example` pour serveur et client
+
+### QR Code terminal
+- **Affichage automatique** au démarrage du serveur
+- **Scan rapide** depuis smartphone (connexion en 5s)
+- **URL adaptative** : dev (5173) ou prod (3000) selon build client
+
+### HTTPS automatique
+- **Vite dev server** : HTTPS par défaut (certificat self-signed)
+- **Redirection HTTP → HTTPS** en mode développement
+- **Production** : utiliser reverse proxy (nginx/Caddy) pour HTTPS
+
+### Configuration dynamique
+- **LIVEKIT_URL: AUTO** dans config.yaml → détection IP runtime
+- **Vite loadEnv()** pour variables d'environnement dynamiques
+- **Serveur statique** : Express sert `client/dist/` en production
 
 ## Tests et validation
 
@@ -327,5 +351,5 @@ Voir [TODO.md](TODO.md) pour le plan détaillé.
 
 ---
 
-**Dernière mise à jour** : 2026-05-21
-**Version** : 0.1.0 (Phase 1 en cours)
+**Dernière mise à jour** : 2026-05-27
+**Version** : 0.2.1 (Portable + QR Code)
