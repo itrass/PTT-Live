@@ -71,17 +71,33 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# Démarrer le serveur (affiche QR code puis redirige vers log)
+# Afficher le QR code AVANT de lancer le serveur
+if [ "$1" == "--dev" ]; then
+  ./show-qr.sh --dev
+else
+  ./show-qr.sh
+fi
+
+# Démarrer le serveur (silencieux, logs dans fichier)
 echo -e "${BLUE}🔧 Démarrage serveur...${NC}"
 echo ""
 
 cd server
 
-# Lancer le serveur avec tee pour capturer ET afficher la sortie
-npm start 2>&1 | tee ../server.log &
+# Lancer le serveur en background silencieux
+npm start > ../server.log 2>&1 &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 cd ..
+
+
+
+
+
+
+
+
+
 
 # Attendre que le serveur soit prêt
 echo ""
@@ -124,6 +140,8 @@ if [ "$1" == "--dev" ]; then
   echo ""
   echo "📊 API serveur : http://${NETWORK_IP}:3000 (→ redirige vers HTTPS)"
   echo "🎛️  Interface admin : https://${NETWORK_IP}:5173/admin"
+  echo ""
+  echo "📝 Logs serveur : tail -f server.log"
   echo ""
   echo -e "${YELLOW}Appuyez sur Ctrl+C pour arrêter${NC}"
   echo ""

@@ -21,8 +21,10 @@ class AudioBridgeManager extends EventEmitter {
 
   /**
    * Démarre le bridge audio avec la configuration actuelle
+   * @param {Object} options - Options de démarrage
+   * @param {string} options.liveKitUrl - URL LiveKit résolue (déjà avec IP si AUTO)
    */
-  async start() {
+  async start(options = {}) {
     if (this.isRunning) {
       console.warn('⚠️  AudioBridge déjà démarré');
       return;
@@ -83,11 +85,14 @@ class AudioBridgeManager extends EventEmitter {
       const inputDeviceId = audioConfig.device?.inputDeviceId || null;
       const outputDeviceId = audioConfig.device?.outputDeviceId || null;
 
+      // Utiliser l'URL résolue passée en option, sinon fallback config
+      const liveKitUrl = options.liveKitUrl || config.server?.livekit?.url || 'ws://localhost:7880';
+
       // Créer l'instance avec la config
       this.bridge = new AudioBridge({
         ...audioConfig,
         // Options LiveKit
-        liveKitUrl: config.server?.livekit?.url || 'ws://localhost:7880',
+        liveKitUrl,
         liveKitToken,
         roomName: 'main',
         // Options de routing

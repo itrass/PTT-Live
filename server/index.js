@@ -9,7 +9,6 @@ import { dirname, join } from 'path';
 import { networkInterfaces } from 'os';
 import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
-import qrcode from 'qrcode-terminal';
 import adminRouter, { registerUser, addLog } from './api/admin.js';
 import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
@@ -428,18 +427,6 @@ async function start() {
         log('info', `   Dev  : ${clientUrl}`);
         log('info', `   Prod : ${prodUrl} (redirige → HTTPS)`);
         log('info', '');
-        log('info', '📲 Scannez le QR code avec votre smartphone :');
-        log('info', '');
-
-        // Générer QR code (utilise URL dev par défaut, ou prod si dist existe)
-        const clientDistPath = join(__dirname, '..', 'client', 'dist');
-        const qrUrl = existsSync(clientDistPath) ? prodUrl : clientUrl;
-
-        qrcode.generate(qrUrl, { small: true }, (qr) => {
-          console.log(qr);
-        });
-
-        log('info', '');
       }
     });
 
@@ -451,7 +438,7 @@ async function start() {
     // 3. Démarrer Audio Bridge Manager (Phase 2.5)
     log('info', '');
     log('info', '🎵 Démarrage Audio Bridge Manager...');
-    await audioBridgeManager.start();
+    await audioBridgeManager.start({ liveKitUrl: LIVEKIT_URL });
     log('info', '✓ Audio Bridge Manager prêt (mode placeholder)');
 
     // Gérer erreur port déjà utilisé
