@@ -84,6 +84,11 @@ echo ""
 
 cd server
 
+# En mode production (pas --dev), activer HTTPS
+if [ "$1" != "--dev" ]; then
+  export ENABLE_HTTPS=true
+fi
+
 # Lancer le serveur en background silencieux
 npm start > ../server.log 2>&1 &
 SERVER_PID=$!
@@ -134,12 +139,15 @@ if [ "$1" == "--dev" ]; then
   echo "✅ PTT Live démarré (mode dev)"
   echo "==================================${NC}"
   echo ""
-  echo "🌐 Accès client :"
-  echo "   • Local : https://localhost:5173"
-  echo "   • Réseau : https://${NETWORK_IP}:5173"
+  echo -e "${BLUE}🌐 ACCÈS CLIENT (HTTPS) :${NC}"
+  echo -e "${GREEN}   👉 Local   : https://localhost:5173${NC}"
+  echo -e "${GREEN}   👉 Réseau  : https://${NETWORK_IP}:5173${NC}"
   echo ""
-  echo "📊 API serveur : http://${NETWORK_IP}:3000 (→ redirige vers HTTPS)"
-  echo "🎛️  Interface admin : https://${NETWORK_IP}:5173/admin"
+  echo -e "${YELLOW}⚠️  Acceptez le certificat auto-signé dans votre navigateur${NC}"
+  echo -e "${YELLOW}   (Cliquez sur 'Avancé' puis 'Continuer')${NC}"
+  echo ""
+  echo "📊 API serveur (HTTP uniquement) : http://localhost:3000"
+  echo "🎛️  Interface admin : https://localhost:5173/admin"
   echo ""
   echo "📝 Logs serveur : tail -f server.log"
   echo ""
@@ -168,11 +176,14 @@ else
   echo "✅ PTT Live démarré (production)"
   echo "==================================${NC}"
   echo ""
-  echo "🌐 Accès :"
-  echo "   • Local : http://localhost:3000"
-  echo "   • Réseau : http://${NETWORK_IP}:3000"
+  echo -e "${BLUE}🌐 ACCÈS CLIENT (HTTPS) :${NC}"
+  echo -e "${GREEN}   👉 Local   : https://localhost:3000${NC}"
+  echo -e "${GREEN}   👉 Réseau  : https://${NETWORK_IP}:3000${NC}"
   echo ""
-  echo "🎛️  Interface admin : http://${NETWORK_IP}:3000/admin"
+  echo -e "${YELLOW}⚠️  Acceptez le certificat auto-signé dans votre navigateur${NC}"
+  echo -e "${YELLOW}   (Cliquez sur 'Avancé' puis 'Continuer')${NC}"
+  echo ""
+  echo "🎛️  Interface admin : https://localhost:3000/admin"
   echo ""
   echo "📝 Logs serveur : tail -f server.log"
   echo ""

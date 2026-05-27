@@ -2,6 +2,8 @@
 
 import 'dotenv/config';
 import express from 'express';
+import https from 'https';
+import http from 'http';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -67,6 +69,7 @@ const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'secret';
 const USE_LOCAL_LIVEKIT = process.env.USE_LOCAL_LIVEKIT === 'true';
 const SERVER_PORT = parseInt(process.env.PORT || config.server.port, 10);
 const SERVER_HOST = config.server.host;
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS === 'true';
 
 // Configuration URL LiveKit
 let LIVEKIT_URL = process.env.LIVEKIT_URL || config.server.livekit.url;
@@ -181,18 +184,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware redirection HTTP → HTTPS (développement uniquement)
-// En développement, redirige vers le serveur Vite HTTPS (5173)
-// En production réelle, utiliser nginx/caddy pour HTTPS
+// Middleware redirection HTTP → HTTPS (si activé)
 app.use((req, res, next) => {
-  const clientDistPath = join(__dirname, '..', 'client', 'dist');
-  const isProd = existsSync(clientDistPath);
-
-  // Mode dev : rediriger HTTP → HTTPS (Vite)
-  if (!isProd && req.protocol === 'http' && req.hostname !== 'localhost') {
-    const devHttpsUrl = `https://${req.hostname}:5173${req.url}`;
-    log('debug', `↪️  Redirection dev HTTPS: ${devHttpsUrl}`);
-    return res.redirect(301, devHttpsUrl);
+  // Si HTTPS activé et requête en HTTP, rediriger
+  if (ENABLE_HTTPS && req.protocol === 'http' && req.hostname !== 'localhost') {
+    const httpsUrl = `https://${req.hostname}:${SERVER_PORT}${req.url}`;
+    log('debug', `↪️  Redirection HTTPS: ${httpsUrl}`);
+    return res.redirect(301, httpsUrl);
   }
 
   next();
@@ -409,31 +407,62 @@ async function start() {
       log('warn', '⚠️  Pour utiliser LiveKit local, définir USE_LOCAL_LIVEKIT=true dans .env');
     }
 
-    // 2. Démarrer API REST
-    const server = app.listen(SERVER_PORT, SERVER_HOST, () => {
-      log('info', `✓ API REST démarrée sur http://${SERVER_HOST}:${SERVER_PORT}`);
-      log('info', '');
-      log('info', 'Serveur prêt !');
-      log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
-      log('info', '');
+    // 2. Démarrer API REST (HTTP ou HTTPS selon config)
+    let server;
 
-      // Afficher URLs d'accès avec QR code
-      if (networkIP && networkIP !== 'localhost') {
-        const clientUrl = `https://${networkIP}:5173`; // Dev mode
-        const prodUrl = `http://${networkIP}:${SERVER_PORT}`; // Prod mode (redirigera vers HTTPS)
+    if (ENABLE_HTTPS) {
+      // Charger certificats SSL (mêmes que Vite)
+      const certPath = join(__dirname, '..', 'client');
+      const httpsOptions = {
+        key: readFileSync(join(certPath, 'localhost+3-key.pem')),
+        cert: readFileSync(join(certPath, 'localhost+3.pem'))
+      };
 
-        log('info', '📱 Accès réseau WiFi :');
+      server = https.createServer(httpsOptions, app);
+      server.listen(SERVER_PORT, SERVER_HOST, () => {
+        log('info', `✓ API REST démarrée sur https://${SERVER_HOST}:${SERVER_PORT}`);
         log('info', '');
-        log('info', `   Dev  : ${clientUrl}`);
-        log('info', `   Prod : ${prodUrl} (redirige → HTTPS)`);
+        log('info', 'Serveur prêt !');
+        log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
         log('info', '');
-      }
-    });
+
+        // Afficher URLs d'accès
+        if (networkIP && networkIP !== 'localhost') {
+          const prodUrl = `https://${networkIP}:${SERVER_PORT}`;
+          log('info', '📱 Accès réseau WiFi :');
+          log('info', '');
+          log('info', `   Prod : ${prodUrl}`);
+          log('info', '');
+        }
+      });
+    } else {
+      server = http.createServer(app);
+      server.listen(SERVER_PORT, SERVER_HOST, () => {
+        log('info', `✓ API REST démarrée sur http://${SERVER_HOST}:${SERVER_PORT}`);
+        log('info', '');
+        log('info', 'Serveur prêt !');
+        log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
+        log('info', '');
+
+        // Afficher URLs d'accès
+        if (networkIP && networkIP !== 'localhost') {
+          const clientUrl = `https://${networkIP}:5173`; // Dev mode
+          const prodUrl = `http://${networkIP}:${SERVER_PORT}`; // Prod mode HTTP
+
+          log('info', '📱 Accès réseau WiFi :');
+          log('info', '');
+          log('info', `   Dev  : ${clientUrl}`);
+          log('info', `   Prod : ${prodUrl}`);
+          log('info', '');
+        }
+      });
+    }
 
     // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
     const audioLevelsServer = new AudioLevelsServer({ server });
     audioLevelsServer.start();
-    log('info', `✓ WebSocket Audio Levels démarré sur ws://${SERVER_HOST}:${SERVER_PORT}`);
+    const wsProtocol = ENABLE_HTTPS ? 'wss' : 'ws';
+    log('info', `✓ WebSocket Audio Levels démarré sur ${wsProtocol}://${SERVER_HOST}:${SERVER_PORT}`);
 
     // 3. Démarrer Audio Bridge Manager (Phase 2.5)
     log('info', '');
