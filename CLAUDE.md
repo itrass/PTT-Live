@@ -307,7 +307,8 @@ test: description
 2. **Après chaque tâche complétée** :
    - ✅ Valider la tâche dans [TODO.md](TODO.md)
    - 🔄 Commiter avec message descriptif en français
-   - 📝 Mettre à jour CLAUDE.md si nécessaire
+   - 📝 Mettre à jour CLAUDE.md si nécessaire sans écrire "🤖 Generated with Claude Code Co-Authored-By: Claude noreply@anthropic.com"
+   - Ne pas créer de fichiers récapitulatifs markdown.
 
 **Exemple workflow** :
 ```bash
