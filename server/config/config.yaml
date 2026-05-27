@@ -4,8 +4,10 @@ audio:
   defaultBitrate: 96
   jitterBufferMs: 40
   device:
-    inputDeviceId: Microphone MacBook Pro
-    outputDeviceId: Haut-parleurs MacBook Pro
+    # Laissez null pour auto-détection du device par défaut
+    # Ou spécifiez le nom exact via l'interface /admin
+    inputDeviceId: null
+    outputDeviceId: null
     sampleRate: 48000
   routing:
     inputToGroup:
@@ -50,7 +52,7 @@ server:
   host: 0.0.0.0
   port: 3000
   livekit:
-    url: ws://192.168.0.146:7880
+    url: AUTO  # AUTO = détection automatique IP réseau | ou ws://IP:7880 pour manuel
 logging:
   level: info  # Changez à 'debug' pour voir plus de détails
   logLatency: false

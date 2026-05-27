@@ -96,14 +96,30 @@ echo ""
 
 cd ..
 
-# Créer fichier .env
-echo "🔑 Génération configuration LiveKit..."
+# Détecter l'IP réseau locale
+echo "🌐 Détection configuration réseau..."
+NETWORK_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n 1)
+
+if [ -z "$NETWORK_IP" ]; then
+    echo -e "${YELLOW}⚠️  IP réseau non détectée, utilisation localhost${NC}"
+    NETWORK_IP="localhost"
+else
+    echo -e "${GREEN}✅ IP réseau détectée : ${NETWORK_IP}${NC}"
+fi
+echo ""
+
+# Créer fichier .env serveur
+echo "🔑 Génération configuration serveur..."
 
 cat > server/.env << EOF
+# Configuration PTT Live Server
+# Généré automatiquement par install/macos.sh
+
 USE_LOCAL_LIVEKIT=true
 
 # LiveKit Configuration
-LIVEKIT_URL=ws://localhost:7880
+# AUTO = détection automatique IP réseau au démarrage
+LIVEKIT_URL=AUTO
 # En mode --dev, LiveKit utilise ces clés par défaut
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=secret
@@ -113,7 +129,23 @@ PORT=3000
 NODE_ENV=development
 EOF
 
-echo -e "${GREEN}✅ Clés API générées (server/.env)${NC}"
+echo -e "${GREEN}✅ Configuration serveur générée (server/.env)${NC}"
+
+# Créer fichier .env client
+echo "🔑 Génération configuration client..."
+
+cat > client/.env << EOF
+# Configuration PTT Live Client
+# Généré automatiquement par install/macos.sh
+
+# En développement local, utilise le proxy Vite
+VITE_API_URL=/api
+
+# Pour accès réseau (autres devices), décommentez et mettez l'IP du serveur :
+# VITE_API_URL=http://${NETWORK_IP}:3000
+EOF
+
+echo -e "${GREEN}✅ Configuration client générée (client/.env)${NC}"
 echo ""
 
 # Message final
@@ -128,7 +160,15 @@ echo ""
 echo "   2. Démarrer le client (nouveau terminal) :"
 echo "      cd client && npm run dev"
 echo ""
-echo "   3. Ouvrir https://localhost:5173 dans votre navigateur"
+echo "   3. Accéder à l'application :"
+echo "      • Développement local : https://localhost:5173"
+echo "      • Depuis autre appareil (WiFi) : https://${NETWORK_IP}:5173"
 echo ""
-echo "📖 Documentation : README.md"
+echo "💡 Configuration réseau :"
+echo "   IP serveur détectée : ${NETWORK_IP}"
+echo "   LiveKit URL : AUTO (détection dynamique)"
+echo ""
+echo "📖 Documentation :"
+echo "   • README.md - Guide complet"
+echo "   • README-PORTABLE.md - Déploiement portable"
 echo ""

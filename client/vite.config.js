@@ -1,9 +1,17 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Charger les variables d'environnement
+  const env = loadEnv(mode, process.cwd(), '');
+
+  // Déterminer l'URL de l'API (utilise variable d'environnement ou fallback localhost)
+  const apiUrl = env.VITE_API_URL || 'http://localhost:3000';
+  const livekitUrl = env.VITE_LIVEKIT_URL || 'ws://localhost:7880';
+
+  return {
   plugins: [
     react(),
     VitePWA({
@@ -68,12 +76,12 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://192.168.0.146:3000',
+        target: apiUrl.startsWith('/') ? 'http://localhost:3000' : apiUrl,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/livekit': {
-        target: 'ws://192.168.0.146:7880',
+        target: livekitUrl,
         ws: true,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/livekit/, '')
@@ -84,4 +92,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true
   }
+  };
 });
