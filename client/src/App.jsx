@@ -100,14 +100,11 @@ function App() {
 
       const data = await response.json();
 
-      // Adapter l'URL LiveKit selon le protocole de la page
-      let livekitUrl = data.url;
-      if (window.location.protocol === 'https:') {
-        // En HTTPS, utiliser le proxy WSS local via Vite
-        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
-      }
+      // Utiliser directement l'URL LiveKit fournie par le serveur
+      const livekitUrl = data.url;
 
       console.log('🔗 Connexion LiveKit:', livekitUrl);
+      console.log('📝 Token:', data.token.substring(0, 50) + '...');
 
       // Se connecter à LiveKit avec les canaux virtuels
       await connect(livekitUrl, data.token, data.virtualChannels || []);
