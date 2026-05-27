@@ -3,12 +3,13 @@
 import 'dotenv/config';
 import express from 'express';
 import { spawn } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { networkInterfaces } from 'os';
 import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
+import qrcode from 'qrcode-terminal';
 import adminRouter, { registerUser, addLog } from './api/admin.js';
 import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
@@ -181,6 +182,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Middleware redirection HTTP → HTTPS (développement uniquement)
+// En développement, redirige vers le serveur Vite HTTPS (5173)
+// En production réelle, utiliser nginx/caddy pour HTTPS
+app.use((req, res, next) => {
+  const clientDistPath = join(__dirname, '..', 'client', 'dist');
+  const isProd = existsSync(clientDistPath);
+
+  // Mode dev : rediriger HTTP → HTTPS (Vite)
+  if (!isProd && req.protocol === 'http' && req.hostname !== 'localhost') {
+    const devHttpsUrl = `https://${req.hostname}:5173${req.url}`;
+    log('debug', `↪️  Redirection dev HTTPS: ${devHttpsUrl}`);
+    return res.redirect(301, devHttpsUrl);
+  }
+
+  next();
+});
+
 // Middleware logging
 app.use((req, res, next) => {
   log('debug', `${req.method} ${req.path}`);
@@ -190,7 +208,6 @@ app.use((req, res, next) => {
 // ========== Servir fichiers statiques client (production) ==========
 
 // En production, servir le build client depuis ../client/dist
-import { existsSync } from 'fs';
 const clientDistPath = join(__dirname, '..', 'client', 'dist');
 
 if (existsSync(clientDistPath)) {
@@ -399,6 +416,31 @@ async function start() {
       log('info', '');
       log('info', 'Serveur prêt !');
       log('info', `Groupes configurés: ${config.groups.map(g => g.name).join(', ')}`);
+      log('info', '');
+
+      // Afficher URLs d'accès avec QR code
+      if (networkIP && networkIP !== 'localhost') {
+        const clientUrl = `https://${networkIP}:5173`; // Dev mode
+        const prodUrl = `http://${networkIP}:${SERVER_PORT}`; // Prod mode (redirigera vers HTTPS)
+
+        log('info', '📱 Accès réseau WiFi :');
+        log('info', '');
+        log('info', `   Dev  : ${clientUrl}`);
+        log('info', `   Prod : ${prodUrl} (redirige → HTTPS)`);
+        log('info', '');
+        log('info', '📲 Scannez le QR code avec votre smartphone :');
+        log('info', '');
+
+        // Générer QR code (utilise URL dev par défaut, ou prod si dist existe)
+        const clientDistPath = join(__dirname, '..', 'client', 'dist');
+        const qrUrl = existsSync(clientDistPath) ? prodUrl : clientUrl;
+
+        qrcode.generate(qrUrl, { small: true }, (qr) => {
+          console.log(qr);
+        });
+
+        log('info', '');
+      }
     });
 
     // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
