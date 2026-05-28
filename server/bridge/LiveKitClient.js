@@ -10,7 +10,7 @@
  * - Reconnexion automatique
  */
 
-import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack, TrackSource } from '@livekit/rtc-node';
+import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack, TrackSource, AudioStream } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
 
 export class LiveKitClient extends EventEmitter {
@@ -153,7 +153,8 @@ export class LiveKitClient extends EventEmitter {
         console.log(`🎵 Track audio souscrit de ${participant.identity}`);
 
         // Création d'un AudioStream pour recevoir les données PCM
-        const stream = new track.AudioStream(
+        const stream = new AudioStream(
+          track,
           this.options.sampleRate,
           this.options.channels
         );
