@@ -374,12 +374,21 @@ export class AudioBridge extends EventEmitter {
       client.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
         // Log premier frame pour diagnostic
         if (!this._firstFrameLogged) {
+          // Calculer RMS pour détecter silence
+          let sumSquares = 0;
+          for (let i = 0; i < Math.min(240, pcmData.length); i++) {
+            sumSquares += pcmData[i] * pcmData[i];
+          }
+          const rms = Math.sqrt(sumSquares / Math.min(240, pcmData.length));
+          const dbFS = 20 * Math.log10(rms / 32768.0);
+
           console.log(`🔍 Diagnostic audio LiveKit:
   sampleRate: ${sampleRate}
-  channels: ${channels}
-  buffer size: ${pcmData.length} bytes
+  channels: ${channels || 1} (défaut: 1 si undefined)
+  buffer size: ${pcmData.length} samples (${pcmData.length * 2} bytes)
   buffer type: ${pcmData.constructor.name}
-  first 10 bytes: [${Array.from(pcmData.slice(0, 10)).join(', ')}]`);
+  first 10 samples: [${Array.from(pcmData.slice(0, 10)).join(', ')}]
+  RMS level: ${rms.toFixed(0)} (${dbFS.toFixed(1)} dBFS)`);
           this._firstFrameLogged = true;
         }
 
@@ -596,19 +605,33 @@ export class AudioBridge extends EventEmitter {
   }
 
   /**
-   * Convertit Buffer PCM 16-bit → Float32Array [-1.0, 1.0]
-   * @param {Buffer} buffer - Buffer PCM 16-bit signed
+   * Convertit Buffer/Int16Array PCM 16-bit → Float32Array [-1.0, 1.0]
+   * @param {Buffer|Int16Array|Uint8Array} buffer - Buffer PCM 16-bit signed
    * @returns {Float32Array}
    * @private
    */
   _bufferToFloat32(buffer) {
-    // Convertir en Buffer Node.js si c'est un Uint8Array ou ArrayBuffer
+    let samples;
+    let float32;
+
+    // Cas 1 : Int16Array (LiveKit Node SDK format)
+    if (buffer instanceof Int16Array) {
+      samples = buffer.length;
+      float32 = this._acquireFloat32Buffer(samples);
+
+      for (let i = 0; i < samples; i++) {
+        float32[i] = buffer[i] / 32768.0;
+      }
+      return float32;
+    }
+
+    // Cas 2 : Buffer/Uint8Array (format classique)
     if (!(buffer instanceof Buffer)) {
       buffer = Buffer.from(buffer);
     }
 
-    const samples = buffer.length / 2; // 2 bytes per sample (16-bit)
-    const float32 = this._acquireFloat32Buffer(samples);
+    samples = buffer.length / 2; // 2 bytes per sample (16-bit)
+    float32 = this._acquireFloat32Buffer(samples);
 
     for (let i = 0; i < samples; i++) {
       // Lire 16-bit signed little-endian
