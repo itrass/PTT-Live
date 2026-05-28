@@ -136,8 +136,19 @@ export class LiveKitClient extends EventEmitter {
     });
 
     // Participants
-    this.room.on(RoomEvent.ParticipantConnected, (participant) => {
+    this.room.on(RoomEvent.ParticipantConnected, async (participant) => {
       console.log(`➕ Participant connecté: ${participant.identity}`);
+
+      // Parcourir les tracks publiés par ce participant et s'y abonner manuellement
+      for (const [trackSid, publication] of participant.trackPublications) {
+        console.log(`  📝 Track disponible: ${publication.kind} (${trackSid}), muted: ${publication.muted}`);
+
+        if (publication.kind === 'audio' && publication.track) {
+          console.log(`  ⚡ Souscription manuelle au track audio ${trackSid}...`);
+          await this._handleAudioTrack(publication.track, publication, participant);
+        }
+      }
+
       this.emit('participantConnected', participant);
     });
 
@@ -152,30 +163,12 @@ export class LiveKitClient extends EventEmitter {
       console.log(`📢 Track publié par ${participant.identity}: ${publication.kind} (${publication.sid}), muted: ${publication.muted}`);
     });
 
-    this.room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+    this.room.on(RoomEvent.TrackSubscribed, async (track, publication, participant) => {
       console.log(`🎵 Track souscrit de ${participant.identity}: ${track.kind} (${publication.sid})`);
 
       if (track.kind === 'audio') {
-        console.log(`🎵 Track AUDIO souscrit de ${participant.identity}, création AudioStream...`);
-
-        // Création d'un AudioStream pour recevoir les données PCM
-        const stream = new AudioStream(
-          track,
-          this.options.sampleRate,
-          this.options.channels
-        );
-
-        this.remoteParticipants.set(participant.sid, {
-          participant,
-          track,
-          publication,
-          stream
-        });
-
-        // Lecture des frames audio
-        this._startAudioReceive(participant.sid, stream);
-
-        this.emit('audioTrackSubscribed', { track, participant });
+        console.log(`🎵 Track AUDIO souscrit de ${participant.identity} (événement TrackSubscribed)`);
+        await this._handleAudioTrack(track, publication, participant);
       }
     });
 
@@ -186,6 +179,33 @@ export class LiveKitClient extends EventEmitter {
         this.emit('audioTrackUnsubscribed', { track, participant });
       }
     });
+  }
+
+  /**
+   * Gère un track audio (création AudioStream et lecture)
+   * @private
+   */
+  async _handleAudioTrack(track, publication, participant) {
+    console.log(`🎧 Création AudioStream pour ${participant.identity}...`);
+
+    // Création d'un AudioStream pour recevoir les données PCM
+    const stream = new AudioStream(
+      track,
+      this.options.sampleRate,
+      this.options.channels
+    );
+
+    this.remoteParticipants.set(participant.sid, {
+      participant,
+      track,
+      publication,
+      stream
+    });
+
+    // Lecture des frames audio
+    this._startAudioReceive(participant.sid, stream);
+
+    this.emit('audioTrackSubscribed', { track, participant });
   }
 
   /**
