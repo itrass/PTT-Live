@@ -54,7 +54,7 @@ export class AudioBridge extends EventEmitter {
     this.opusEncoder = null;
     this.opusDecoder = null;
     this.jitterBuffer = null;
-    this.liveKitClient = null;
+    this.liveKitClients = new Map(); // Map<groupName, LiveKitClient> - un client par groupe
     this.groupAudioRouter = null;
 
     // État
@@ -324,56 +324,67 @@ export class AudioBridge extends EventEmitter {
   }
 
   /**
-   * Initialise la connexion LiveKit
+   * Initialise les connexions LiveKit (une par groupe)
    * @private
    */
   async _initLiveKit() {
-    if (!this.options.liveKitToken) {
-      throw new Error('Token LiveKit requis');
+    if (!this.options.liveKitTokens || !Array.isArray(this.options.liveKitTokens)) {
+      throw new Error('liveKitTokens requis (tableau d\'objets { groupName, groupId, token })');
     }
 
-    this.liveKitClient = new LiveKitClient({
-      url: this.options.liveKitUrl,
-      token: this.options.liveKitToken,
-      roomName: this.options.roomName,
-      participantName: 'AudioBridge',
-      sampleRate: this.options.sampleRate,
-      channels: this.options.channels,
-      audioBitrate: this.opusEncoder.options.bitrate
-    });
+    console.log(`🔌 Initialisation ${this.options.liveKitTokens.length} connexions LiveKit (une par groupe)...`);
 
-    // Events LiveKit
-    this.liveKitClient.on('connected', () => {
-      console.log('✓ LiveKit connecté');
-    });
+    // Créer un LiveKitClient pour chaque groupe
+    for (const { groupName, groupId, token } of this.options.liveKitTokens) {
+      const roomName = groupId; // La room porte le nom du groupId (slugifié)
 
-    this.liveKitClient.on('disconnected', (data) => {
-      const reason = data?.reason || 'unknown';
-      console.warn('⚠️  LiveKit déconnecté:', reason);
-      this.stats.errors.network++;
-    });
+      const client = new LiveKitClient({
+        url: this.options.liveKitUrl,
+        token,
+        roomName,
+        participantName: `AudioBridge-${groupId}`,
+        sampleRate: this.options.sampleRate,
+        channels: this.options.channels,
+        audioBitrate: this.opusEncoder.options.bitrate
+      });
 
-    this.liveKitClient.on('reconnecting', () => {
-      console.log('🔄 LiveKit reconnexion...');
-    });
+      // Events LiveKit pour ce groupe
+      client.on('connected', () => {
+        console.log(`✓ LiveKit connecté pour groupe "${groupName}" (room: ${roomName})`);
+      });
 
-    this.liveKitClient.on('audioTrackSubscribed', ({ track, participant }) => {
-      console.log(`🎵 Nouveau track audio : ${participant.identity}`);
-    });
+      client.on('disconnected', (data) => {
+        const reason = data?.reason || 'unknown';
+        console.warn(`⚠️  LiveKit déconnecté pour groupe "${groupName}":`, reason);
+        this.stats.errors.network++;
+      });
 
-    // Réception audio depuis les clients LiveKit
-    this.liveKitClient.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
-      console.log(`[AudioBridge FLUX 2] Audio reçu de ${participantName}: ${pcmData.length} bytes (${sampleRate}Hz, ${channels}ch)`);
+      client.on('reconnecting', () => {
+        console.log(`🔄 LiveKit reconnexion pour groupe "${groupName}"...`);
+      });
 
-      // Pour l'instant, on route vers le groupe principal
-      // TODO: Mapper les participants aux groupes selon la configuration
-      const groupName = 'Equipe'; // Groupe par défaut
-      this.emit('groupAudioIn', { groupName, pcmBuffer: pcmData });
+      client.on('audioTrackSubscribed', ({ track, participant }) => {
+        console.log(`🎵 Nouveau track audio dans groupe "${groupName}": ${participant.identity}`);
+      });
 
-      console.log(`[AudioBridge FLUX 2] Événement groupAudioIn émis pour groupe "${groupName}"`);
-    });
+      // Réception audio depuis les clients LiveKit de ce groupe
+      client.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
+        console.log(`[AudioBridge FLUX 2] Audio reçu de ${participantName} (groupe "${groupName}"): ${pcmData.length} bytes`);
 
-    await this.liveKitClient.connect();
+        // Router vers le bon groupe
+        this.emit('groupAudioIn', { groupName: groupId, pcmBuffer: pcmData });
+
+        console.log(`[AudioBridge FLUX 2] Événement groupAudioIn émis pour groupe "${groupId}"`);
+      });
+
+      // Connexion
+      await client.connect();
+
+      // Stocker le client par groupId
+      this.liveKitClients.set(groupId, client);
+    }
+
+    console.log(`✓ ${this.liveKitClients.size} connexions LiveKit établies`);
   }
 
   /**
@@ -403,7 +414,7 @@ export class AudioBridge extends EventEmitter {
           console.log(`[AudioBridge] Frame ${this.stats.framesCapture}: ${this.inputChannelBuffers.size} inputs → ${groupBuffers.size} groupes`);
         }
 
-        // ÉTAPE 2 : Pour chaque groupe, envoyer vers LiveKit
+        // ÉTAPE 2 : Pour chaque groupe, envoyer vers le LiveKitClient correspondant
         groupBuffers.forEach((groupBuffer, groupName) => {
           // Convertir Float32Array → PCM Buffer
           const pcmBuffer = this._float32ToBuffer(groupBuffer);
@@ -414,16 +425,19 @@ export class AudioBridge extends EventEmitter {
           if (opusData) {
             this.stats.bytesEncoded += opusData.length;
 
+            // Récupérer le client LiveKit pour ce groupe
+            const client = this.liveKitClients.get(groupName);
+
             // Envoi vers LiveKit via sendAudioData (prend du PCM, pas de l'Opus)
             // Note: LiveKit gère lui-même l'encodage Opus en interne
-            if (this.liveKitClient && this.liveKitClient.isConnected) {
-              this.liveKitClient.sendAudioData(pcmBuffer);
+            if (client && client.isConnected) {
+              client.sendAudioData(pcmBuffer);
               if (this.stats.framesCapture % 100 === 0) {
                 console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes`);
               }
             } else {
               if (this.stats.framesCapture % 100 === 0) {
-                console.log(`[AudioBridge] ⚠️  LiveKit non connecté, audio non envoyé`);
+                console.log(`[AudioBridge] ⚠️  LiveKit non connecté pour groupe "${groupName}", audio non envoyé`);
               }
             }
 
@@ -613,10 +627,12 @@ export class AudioBridge extends EventEmitter {
       this.audioBackend = null;
     }
 
-    if (this.liveKitClient) {
-      await this.liveKitClient.destroy();
-      this.liveKitClient = null;
+    // Déconnecter tous les clients LiveKit
+    for (const [groupName, client] of this.liveKitClients.entries()) {
+      console.log(`🔌 Déconnexion LiveKit groupe "${groupName}"...`);
+      await client.destroy();
     }
+    this.liveKitClients.clear();
 
     if (this.groupAudioRouter) {
       this.groupAudioRouter.destroy();

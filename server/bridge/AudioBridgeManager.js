@@ -34,31 +34,60 @@ class AudioBridgeManager extends EventEmitter {
       const config = configManager.get();
       console.log('🎵 Démarrage AudioBridge avec configuration:', config.audio);
 
-      // Génération du token JWT pour le participant serveur
-      const token = new AccessToken(
-        config.server?.livekit?.apiKey || 'devkey',
-        config.server?.livekit?.apiSecret || 'secret',
-        {
-          identity: 'AudioBridge',
-          name: 'Audio Bridge Server',
-          metadata: JSON.stringify({
-            role: 'bridge',
-            capabilities: ['audio-routing', 'monitoring']
-          })
-        }
-      );
+      // Générer un token JWT par groupe
+      const liveKitTokens = [];
 
-      // Permissions complètes pour le bridge serveur
-      token.addGrant({
-        room: 'main',
-        roomJoin: true,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true
-      });
+      // Fonction pour slugifier le nom (identique à admin.js)
+      const slugify = (text) => {
+        return text
+          .toString()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '-')
+          .replace(/[^\w-]+/g, '')
+          .replace(/--+/g, '-');
+      };
 
-      const liveKitToken = await token.toJwt();
-      console.log('✓ Token JWT généré pour AudioBridge');
+      for (const group of config.groups || []) {
+        const groupId = slugify(group.name);
+        const groupName = group.name;
+
+        const token = new AccessToken(
+          config.server?.livekit?.apiKey || 'devkey',
+          config.server?.livekit?.apiSecret || 'secret',
+          {
+            identity: `AudioBridge-${groupId}`,
+            name: `Audio Bridge - ${groupName}`,
+            metadata: JSON.stringify({
+              role: 'bridge',
+              group: groupId,
+              capabilities: ['audio-routing', 'monitoring']
+            })
+          }
+        );
+
+        // Permissions complètes pour ce groupe
+        token.addGrant({
+          room: groupId, // Chaque groupe a sa propre room
+          roomJoin: true,
+          canPublish: true,
+          canSubscribe: true,
+          canPublishData: true
+        });
+
+        const jwt = await token.toJwt();
+        liveKitTokens.push({ groupName, groupId, token: jwt });
+
+        console.log(`✓ Token JWT généré pour groupe "${groupName}" (room: ${groupId})`);
+      }
+
+      if (liveKitTokens.length === 0) {
+        console.warn('⚠️  Aucun groupe configuré, AudioBridge ne pourra pas démarrer');
+        this.isRunning = false;
+        return;
+      }
 
       // Import dynamique du AudioBridge
       const { AudioBridge } = await import('./AudioBridge.js');
@@ -91,10 +120,9 @@ class AudioBridgeManager extends EventEmitter {
       // Créer l'instance avec la config
       this.bridge = new AudioBridge({
         ...audioConfig,
-        // Options LiveKit
+        // Options LiveKit (multi-rooms)
         liveKitUrl,
-        liveKitToken,
-        roomName: 'main',
+        liveKitTokens, // Tableau de { groupName, groupId, token }
         // Options de routing
         routing: config.audio?.routing || {},
         groups: config.groups || [],
