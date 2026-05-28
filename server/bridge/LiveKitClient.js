@@ -10,7 +10,7 @@
  * - Reconnexion automatique
  */
 
-import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack, TrackSource, AudioStream } from '@livekit/rtc-node';
+import { Room, RoomEvent, AudioSource, AudioFrame, LocalAudioTrack, TrackSource, AudioStream, TrackKind } from '@livekit/rtc-node';
 import { EventEmitter } from 'events';
 
 export class LiveKitClient extends EventEmitter {
@@ -143,7 +143,7 @@ export class LiveKitClient extends EventEmitter {
       for (const [trackSid, publication] of participant.trackPublications) {
         console.log(`  📝 Track disponible: ${publication.kind} (${trackSid}), muted: ${publication.muted}`);
 
-        if (publication.kind === 'audio' && publication.track) {
+        if (publication.kind === TrackKind.KIND_AUDIO && publication.track) {
           console.log(`  ⚡ Souscription manuelle au track audio ${trackSid}...`);
           await this._handleAudioTrack(publication.track, publication, participant);
         }
@@ -163,10 +163,10 @@ export class LiveKitClient extends EventEmitter {
       console.log(`📢 Track publié par ${participant.identity}: ${publication.kind} (${publication.sid}), muted: ${publication.muted}`);
 
       // Si c'est un track audio, s'y abonner immédiatement
-      if (publication.kind === 'audio' && publication.track) {
+      if (publication.kind === TrackKind.KIND_AUDIO && publication.track) {
         console.log(`  ⚡ Track audio détecté, souscription...`);
         await this._handleAudioTrack(publication.track, publication, participant);
-      } else if (publication.kind === 'audio' && !publication.track) {
+      } else if (publication.kind === TrackKind.KIND_AUDIO && !publication.track) {
         console.log(`  ⚠️  Track audio publié mais track object non disponible encore`);
       }
     });
@@ -174,14 +174,14 @@ export class LiveKitClient extends EventEmitter {
     this.room.on(RoomEvent.TrackSubscribed, async (track, publication, participant) => {
       console.log(`🎵 Track souscrit de ${participant.identity}: ${track.kind} (${publication.sid})`);
 
-      if (track.kind === 'audio') {
+      if (track.kind === TrackKind.KIND_AUDIO) {
         console.log(`🎵 Track AUDIO souscrit de ${participant.identity} (événement TrackSubscribed)`);
         await this._handleAudioTrack(track, publication, participant);
       }
     });
 
     this.room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-      if (track.kind === 'audio') {
+      if (track.kind === TrackKind.KIND_AUDIO) {
         console.log(`🔇 Track audio désouscrit de ${participant.identity}`);
         this.remoteParticipants.delete(participant.sid);
         this.emit('audioTrackUnsubscribed', { track, participant });
