@@ -147,10 +147,16 @@ export class LiveKitClient extends EventEmitter {
       this.emit('participantDisconnected', participant);
     });
 
-    // Tracks
+    // Tracks - Debug tous les événements
+    this.room.on(RoomEvent.TrackPublished, (publication, participant) => {
+      console.log(`📢 Track publié par ${participant.identity}: ${publication.kind} (${publication.sid}), muted: ${publication.muted}`);
+    });
+
     this.room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      console.log(`🎵 Track souscrit de ${participant.identity}: ${track.kind} (${publication.sid})`);
+
       if (track.kind === 'audio') {
-        console.log(`🎵 Track audio souscrit de ${participant.identity}`);
+        console.log(`🎵 Track AUDIO souscrit de ${participant.identity}, création AudioStream...`);
 
         // Création d'un AudioStream pour recevoir les données PCM
         const stream = new AudioStream(
