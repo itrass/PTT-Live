@@ -129,15 +129,26 @@ function startLiveKitServer() {
 
     livekitProcess = spawn(livekitBinary, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        LIVEKIT_LOG_LEVEL: 'info'  // Réduit les logs LiveKit (debug → info)
+      },
       shell: true  // Permet de trouver le binaire dans PATH
     });
 
     livekitProcess.stdout.on('data', (data) => {
       const output = data.toString().trim();
-      if (output) {
-        log('debug', '[LiveKit]', output);
+      if (!output) return;
+
+      // Filtrer les logs trop verbeux
+      if (output.includes('DEBUG') ||
+          output.includes('received signal request') ||
+          output.includes('sending signal response') ||
+          output.includes('handling signal request')) {
+        return; // Ignorer ces logs
       }
+
+      log('debug', '[LiveKit]', output);
 
       // Détection démarrage réussi
       if (output.includes('starting server') || output.includes('rtc server')) {
@@ -147,9 +158,14 @@ function startLiveKitServer() {
 
     livekitProcess.stderr.on('data', (data) => {
       const output = data.toString().trim();
-      if (output) {
-        log('warn', '[LiveKit Error]', output);
+      if (!output) return;
+
+      // Filtrer les logs DEBUG de stderr aussi
+      if (output.includes('DEBUG')) {
+        return;
       }
+
+      log('warn', '[LiveKit Error]', output);
     });
 
     livekitProcess.on('error', (error) => {
