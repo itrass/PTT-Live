@@ -491,12 +491,23 @@ export class AudioBridge extends EventEmitter {
 
         const accumulator = this.liveKitFrameAccumulators.get(groupName);
 
+        // Vérifier que le buffer ne débordera pas
+        const availableSpace = 960 - accumulator.offset;
+        const samplesToCopy = Math.min(samplesReceived, availableSpace);
+
         // Copier les samples dans l'accumulateur
-        accumulator.buffer.set(float32Data, accumulator.offset);
-        accumulator.offset += samplesReceived;
+        if (samplesToCopy > 0) {
+          accumulator.buffer.set(float32Data.subarray(0, samplesToCopy), accumulator.offset);
+          accumulator.offset += samplesToCopy;
+        }
 
         // Si on a accumulé assez de samples (960), router vers les outputs
         if (accumulator.offset >= 960) {
+          // Vérifier que le backend est toujours actif (évite crash pendant shutdown)
+          if (!this.audioBackend) {
+            return;
+          }
+
           // Stocker le buffer complet pour le routing
           this.groupBuffersFromLiveKit.set(groupName, accumulator.buffer);
 

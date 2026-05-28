@@ -349,7 +349,14 @@ export class LiveKitClient extends EventEmitter {
     if (this.room) {
       // Unpublish track
       if (this.localAudioTrack) {
-        await this.room.localParticipant.unpublishTrack(this.localAudioTrack.sid);
+        try {
+          await this.room.localParticipant.unpublishTrack(this.localAudioTrack.sid);
+        } catch (error) {
+          // Ignorer l'erreur si le track n'existe plus (shutdown rapide)
+          if (!error.message?.includes('track not found')) {
+            console.warn('⚠️  Erreur unpublish track:', error.message);
+          }
+        }
         this.localAudioTrack = null;
       }
 
