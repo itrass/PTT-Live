@@ -578,6 +578,11 @@ export class AudioBridge extends EventEmitter {
    * @private
    */
   _bufferToFloat32(buffer) {
+    // Convertir en Buffer Node.js si c'est un Uint8Array ou ArrayBuffer
+    if (!(buffer instanceof Buffer)) {
+      buffer = Buffer.from(buffer);
+    }
+
     const samples = buffer.length / 2; // 2 bytes per sample (16-bit)
     const float32 = this._acquireFloat32Buffer(samples);
 
