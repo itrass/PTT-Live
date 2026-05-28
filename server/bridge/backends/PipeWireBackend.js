@@ -23,7 +23,8 @@ export class PipeWireBackend extends EventEmitter {
       sampleRate: options.sampleRate || 48000,
       channels: options.channels || 1,
       framesPerBuffer: options.framesPerBuffer || 960,
-      targetDevice: options.targetDevice || null,
+      inputTargetDevice: options.inputTargetDevice || null,
+      outputTargetDevice: options.outputTargetDevice || null,
       latency: options.latency || 20, // ms
       ...options
     };
@@ -186,8 +187,8 @@ export class PipeWireBackend extends EventEmitter {
       ];
 
       // Ajoute le device cible si spécifié
-      if (this.options.targetDevice) {
-        args.push(`--target=${this.options.targetDevice}`);
+      if (this.options.inputTargetDevice) {
+        args.push(`--target=${this.options.inputTargetDevice}`);
       }
 
       this.captureProcess = spawn('pw-cat', args);
@@ -258,8 +259,8 @@ export class PipeWireBackend extends EventEmitter {
         '-' // Lecture depuis stdin
       ];
 
-      if (this.options.targetDevice) {
-        args.push(`--target=${this.options.targetDevice}`);
+      if (this.options.outputTargetDevice) {
+        args.push(`--target=${this.options.outputTargetDevice}`);
       }
 
       this.playbackProcess = spawn('pw-cat', args);

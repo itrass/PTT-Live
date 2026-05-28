@@ -213,17 +213,28 @@ export class AudioBridge extends EventEmitter {
     }
 
     // Initialisation du backend sélectionné
-    this.audioBackend = new BackendClass({
+    const backendOptions = {
       sampleRate: this.options.sampleRate,
       channels: this.options.channels,
       framesPerBuffer: this.options.frameSize,
-      inputDeviceId: this.options.inputDeviceId,
-      inputDeviceName: inputDeviceName,
-      outputDeviceId: this.options.outputDeviceId,
-      outputDeviceName: outputDeviceName,
-      // Options spécifiques PipeWire
       latency: this.options.latency || 20
-    });
+    };
+
+    // PipeWire utilise targetDevice, CoreAudio utilise inputDeviceName/outputDeviceName
+    if (this.backendType === 'PipeWire') {
+      // Pour PipeWire, on utilise inputDeviceId directement comme targetDevice
+      // (startCapture et startPlayback peuvent avoir des targets différents)
+      backendOptions.inputTargetDevice = this.options.inputDeviceId;
+      backendOptions.outputTargetDevice = this.options.outputDeviceId;
+    } else {
+      // CoreAudio et autres backends
+      backendOptions.inputDeviceId = this.options.inputDeviceId;
+      backendOptions.inputDeviceName = inputDeviceName;
+      backendOptions.outputDeviceId = this.options.outputDeviceId;
+      backendOptions.outputDeviceName = outputDeviceName;
+    }
+
+    this.audioBackend = new BackendClass(backendOptions);
 
     // Liste des devices disponibles
     devices = BackendClass.getDevices();
