@@ -159,8 +159,16 @@ export class LiveKitClient extends EventEmitter {
     });
 
     // Tracks - Debug tous les événements
-    this.room.on(RoomEvent.TrackPublished, (publication, participant) => {
+    this.room.on(RoomEvent.TrackPublished, async (publication, participant) => {
       console.log(`📢 Track publié par ${participant.identity}: ${publication.kind} (${publication.sid}), muted: ${publication.muted}`);
+
+      // Si c'est un track audio, s'y abonner immédiatement
+      if (publication.kind === 'audio' && publication.track) {
+        console.log(`  ⚡ Track audio détecté, souscription...`);
+        await this._handleAudioTrack(publication.track, publication, participant);
+      } else if (publication.kind === 'audio' && !publication.track) {
+        console.log(`  ⚠️  Track audio publié mais track object non disponible encore`);
+      }
     });
 
     this.room.on(RoomEvent.TrackSubscribed, async (track, publication, participant) => {
