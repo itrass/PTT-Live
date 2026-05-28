@@ -168,7 +168,8 @@ install_livekit_server() {
     echo ""
     echo "Téléchargement de LiveKit Server..."
 
-    LIVEKIT_VERSION="v1.5.2"
+    LIVEKIT_VERSION="v1.12.0"
+    LIVEKIT_VERSION_NUM="${LIVEKIT_VERSION#v}"  # Retire le 'v' pour le nom du fichier
     LIVEKIT_DIR="$PROJECT_ROOT/server/bin"
     LIVEKIT_BINARY="$LIVEKIT_DIR/livekit-server"
 
@@ -189,7 +190,7 @@ install_livekit_server() {
             ;;
     esac
 
-    LIVEKIT_URL="https://github.com/livekit/livekit/releases/download/${LIVEKIT_VERSION}/livekit_${LIVEKIT_VERSION}_linux_${LIVEKIT_ARCH}.tar.gz"
+    LIVEKIT_URL="https://github.com/livekit/livekit/releases/download/${LIVEKIT_VERSION}/livekit_${LIVEKIT_VERSION_NUM}_linux_${LIVEKIT_ARCH}.tar.gz"
 
     echo "Téléchargement depuis : $LIVEKIT_URL"
 
