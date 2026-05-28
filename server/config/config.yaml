@@ -54,6 +54,6 @@ server:
   livekit:
     url: AUTO  # AUTO = détection automatique IP réseau | ou ws://IP:7880 pour manuel
 logging:
-  level: info  # Changez à 'debug' pour voir plus de détails
+  level: debug  # Changez à 'debug' pour voir plus de détails
   logLatency: false
   logAudioStats: false
