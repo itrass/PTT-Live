@@ -372,6 +372,17 @@ export class AudioBridge extends EventEmitter {
 
       // Réception audio depuis les clients LiveKit de ce groupe
       client.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
+        // Log premier frame pour diagnostic
+        if (!this._firstFrameLogged) {
+          console.log(`🔍 Diagnostic audio LiveKit:
+  sampleRate: ${sampleRate}
+  channels: ${channels}
+  buffer size: ${pcmData.length} bytes
+  buffer type: ${pcmData.constructor.name}
+  first 10 bytes: [${Array.from(pcmData.slice(0, 10)).join(', ')}]`);
+          this._firstFrameLogged = true;
+        }
+
         // Router vers le bon groupe
         this.emit('groupAudioIn', { groupName: groupId, pcmBuffer: pcmData });
       });
