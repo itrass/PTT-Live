@@ -108,8 +108,11 @@ let livekitProcess = null;
 
 function startLiveKitServer() {
   return new Promise((resolve, reject) => {
-    // Utiliser le binaire Homebrew (dans PATH)
-    const livekitBinary = 'livekit-server';
+    // Détection du binaire LiveKit :
+    // 1. Binaire local (Linux après install.sh) : server/bin/livekit-server
+    // 2. Binaire Homebrew (macOS) : livekit-server dans PATH
+    const localBinary = join(__dirname, 'bin', 'livekit-server');
+    const livekitBinary = existsSync(localBinary) ? localBinary : 'livekit-server';
 
     log('info', 'Démarrage LiveKit Server...');
     log('debug', 'Commande:', livekitBinary);
