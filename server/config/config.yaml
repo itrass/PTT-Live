@@ -6,8 +6,8 @@ audio:
   device:
     # Laissez null pour auto-détection du device par défaut
     # Ou spécifiez le nom exact via l'interface /admin
-    inputDeviceId: null
-    outputDeviceId: null
+    inputDeviceId: alsa_input.pci-0000_00_01.0.analog-stereo
+    outputDeviceId: alsa_output.pci-0000_00_01.0.analog-stereo
     sampleRate: 48000
   routing:
     inputToGroup:
