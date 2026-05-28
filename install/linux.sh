@@ -71,7 +71,8 @@ install_system_deps() {
                 # Outils PipeWire
                 sudo apt install -y \
                     pipewire-bin \
-                    libspa-0.2-jack
+                    libspa-0.2-jack \
+                    pulseaudio-utils
 
                 # Démarrage automatique
                 systemctl --user enable --now pipewire pipewire-pulse wireplumber

@@ -352,10 +352,14 @@ export class AudioBridge extends EventEmitter {
 
     // Réception audio depuis les clients LiveKit
     this.liveKitClient.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
+      console.log(`[AudioBridge FLUX 2] Audio reçu de ${participantName}: ${pcmData.length} bytes (${sampleRate}Hz, ${channels}ch)`);
+
       // Pour l'instant, on route vers le groupe principal
       // TODO: Mapper les participants aux groupes selon la configuration
       const groupName = 'Equipe'; // Groupe par défaut
       this.emit('groupAudioIn', { groupName, pcmBuffer: pcmData });
+
+      console.log(`[AudioBridge FLUX 2] Événement groupAudioIn émis pour groupe "${groupName}"`);
     });
 
     await this.liveKitClient.connect();
@@ -449,18 +453,26 @@ export class AudioBridge extends EventEmitter {
     // Écouter l'audio entrant de LiveKit (sera connecté par LiveKitServerBridge)
     this.on('groupAudioIn', ({ groupName, pcmBuffer }) => {
       try {
+        console.log(`[AudioBridge FLUX 2] Handler groupAudioIn: groupe="${groupName}", buffer=${pcmBuffer.length} bytes`);
+
         // Stocker le buffer du groupe pour le routing
         const float32Data = this._bufferToFloat32(pcmBuffer);
         this.groupBuffersFromLiveKit.set(groupName, float32Data);
+
+        console.log(`[AudioBridge FLUX 2] Buffer Float32 créé: ${float32Data.length} samples`);
 
         // ÉTAPE 3 : Groupes → Outputs physiques (via GroupAudioRouter)
         const outputBuffers = this.groupAudioRouter.processGroupsToOutputs(
           this.groupBuffersFromLiveKit
         );
 
+        console.log(`[AudioBridge FLUX 2] GroupRouter processGroupsToOutputs: ${this.groupBuffersFromLiveKit.size} groupes → ${outputBuffers.size} outputs`);
+
         // ÉTAPE 4 : Envoyer chaque output à la carte son
         outputBuffers.forEach((outputBuffer, channelId) => {
           const pcmBuffer = this._float32ToBuffer(outputBuffer);
+
+          console.log(`[AudioBridge FLUX 2] → Output ${channelId}: ${pcmBuffer.length} bytes vers carte son`);
 
           // Envoyer à la carte son
           this.audioBackend.queueAudio(pcmBuffer);
