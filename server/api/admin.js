@@ -736,21 +736,41 @@ router.get('/devices/list', async (req, res) => {
             }
           });
         } else {
-          // Fallback : PipeWire via pactl
+          // Fallback : PipeWire/PulseAudio via pactl
           const { stdout: paDevices } = await execPromise('pactl list short sources 2>/dev/null || echo ""');
           const { stdout: paSinks } = await execPromise('pactl list short sinks 2>/dev/null || echo ""');
 
+          // Helper pour obtenir une description lisible
+          const getDeviceDescription = (deviceId) => {
+            // Extraire une description plus lisible du nom technique
+            if (deviceId.includes('alsa_input')) return deviceId.replace('alsa_input.', 'Input: ');
+            if (deviceId.includes('alsa_output')) return deviceId.replace('alsa_output.', 'Output: ');
+            return deviceId;
+          };
+
           if (paDevices.trim()) {
-            paDevices.split('\n').filter(Boolean).forEach((line, idx) => {
-              const name = line.split('\t')[1] || `Device ${idx}`;
-              devices.inputs.push({ id: idx, name });
+            paDevices.split('\n').filter(Boolean).forEach((line) => {
+              const parts = line.split('\t');
+              const deviceId = parts[1]; // Nom du device (ex: alsa_input.pci-...)
+              if (deviceId && !deviceId.includes('.monitor')) { // Ignorer les monitors
+                devices.inputs.push({
+                  id: deviceId,
+                  name: getDeviceDescription(deviceId)
+                });
+              }
             });
           }
 
           if (paSinks.trim()) {
-            paSinks.split('\n').filter(Boolean).forEach((line, idx) => {
-              const name = line.split('\t')[1] || `Device ${idx}`;
-              devices.outputs.push({ id: idx, name });
+            paSinks.split('\n').filter(Boolean).forEach((line) => {
+              const parts = line.split('\t');
+              const deviceId = parts[1]; // Nom du device (ex: alsa_output.pci-...)
+              if (deviceId) {
+                devices.outputs.push({
+                  id: deviceId,
+                  name: getDeviceDescription(deviceId)
+                });
+              }
             });
           }
         }
