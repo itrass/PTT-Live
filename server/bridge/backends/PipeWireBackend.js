@@ -74,8 +74,10 @@ export class PipeWireBackend extends EventEmitter {
 
     try {
       // Utilise pactl (compatible PipeWire) pour lister les devices
-      const sourcesOutput = execSync('pactl list sources short', { encoding: 'utf8' });
-      const sinksOutput = execSync('pactl list sinks short', { encoding: 'utf8' });
+      // Chemin absolu pour éviter les problèmes de PATH avec /bin/sh
+      const pactlCmd = '/usr/bin/pactl';
+      const sourcesOutput = execSync(`${pactlCmd} list sources short`, { encoding: 'utf8' });
+      const sinksOutput = execSync(`${pactlCmd} list sinks short`, { encoding: 'utf8' });
 
       const devices = [];
 
@@ -126,7 +128,8 @@ export class PipeWireBackend extends EventEmitter {
    */
   static getDefaultInputDevice() {
     try {
-      const output = execSync('pactl get-default-source', { encoding: 'utf8' });
+      const pactlCmd = '/usr/bin/pactl';
+      const output = execSync(`${pactlCmd} get-default-source`, { encoding: 'utf8' });
       const defaultName = output.trim();
 
       const devices = this.getDevices();
@@ -144,7 +147,8 @@ export class PipeWireBackend extends EventEmitter {
    */
   static getDefaultOutputDevice() {
     try {
-      const output = execSync('pactl get-default-sink', { encoding: 'utf8' });
+      const pactlCmd = '/usr/bin/pactl';
+      const output = execSync(`${pactlCmd} get-default-sink`, { encoding: 'utf8' });
       const defaultName = output.trim();
 
       const devices = this.getDevices();
