@@ -270,17 +270,11 @@ export class GroupAudioRouter extends EventEmitter {
     // Réinitialise les buffers de sortie
     this.outputBuffers.clear();
 
-    logger.debug(`[GroupRouter] processGroupsToOutputs: ${groupBuffersData.size} groupes en entrée`);
-    logger.debug(`[GroupRouter] Routes disponibles: ${JSON.stringify([...this.groupToOutputRoutes.keys()])}`);
-
     // Pour chaque groupe
     groupBuffersData.forEach((pcmData, groupName) => {
       const routes = this.groupToOutputRoutes.get(groupName);
 
-      logger.debug(`[GroupRouter] Groupe "${groupName}": ${routes ? routes.length : 0} routes trouvées`);
-
       if (!routes || routes.length === 0) {
-        logger.warn(`[GroupRouter] Aucune route de sortie configurée pour groupe "${groupName}" - audio ignoré`);
         return;
       }
 

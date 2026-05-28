@@ -65,6 +65,9 @@ export class AudioBridge extends EventEmitter {
     this.inputChannelBuffers = new Map(); // Map<channelId, Float32Array>
     this.groupBuffersFromLiveKit = new Map(); // Map<groupName, Float32Array>
 
+    // Frame accumulators pour LiveKit (240 samples → 960 samples)
+    this.liveKitFrameAccumulators = new Map(); // Map<groupName, { buffer: Float32Array, offset: number }>
+
     // Pool de buffers pré-alloués pour éviter allocations répétées
     this.bufferPool = {
       float32: [], // Pool de Float32Array réutilisables
@@ -369,12 +372,8 @@ export class AudioBridge extends EventEmitter {
 
       // Réception audio depuis les clients LiveKit de ce groupe
       client.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
-        console.log(`[AudioBridge FLUX 2] Audio reçu de ${participantName} (groupe "${groupName}"): ${pcmData.length} bytes`);
-
         // Router vers le bon groupe
         this.emit('groupAudioIn', { groupName: groupId, pcmBuffer: pcmData });
-
-        console.log(`[AudioBridge FLUX 2] Événement groupAudioIn émis pour groupe "${groupId}"`);
       });
 
       // Connexion
@@ -478,32 +477,46 @@ export class AudioBridge extends EventEmitter {
     // Écouter l'audio entrant de LiveKit (sera connecté par LiveKitServerBridge)
     this.on('groupAudioIn', ({ groupName, pcmBuffer }) => {
       try {
-        console.log(`[AudioBridge FLUX 2] Handler groupAudioIn: groupe="${groupName}", buffer=${pcmBuffer.length} bytes`);
-
-        // Stocker le buffer du groupe pour le routing
+        // Convertir PCM Buffer → Float32Array
         const float32Data = this._bufferToFloat32(pcmBuffer);
-        this.groupBuffersFromLiveKit.set(groupName, float32Data);
+        const samplesReceived = float32Data.length;
 
-        console.log(`[AudioBridge FLUX 2] Buffer Float32 créé: ${float32Data.length} samples`);
+        // Initialiser l'accumulateur pour ce groupe si nécessaire
+        if (!this.liveKitFrameAccumulators.has(groupName)) {
+          this.liveKitFrameAccumulators.set(groupName, {
+            buffer: new Float32Array(960), // Frame size attendu par GroupRouter
+            offset: 0
+          });
+        }
 
-        // ÉTAPE 3 : Groupes → Outputs physiques (via GroupAudioRouter)
-        const outputBuffers = this.groupAudioRouter.processGroupsToOutputs(
-          this.groupBuffersFromLiveKit
-        );
+        const accumulator = this.liveKitFrameAccumulators.get(groupName);
 
-        console.log(`[AudioBridge FLUX 2] GroupRouter processGroupsToOutputs: ${this.groupBuffersFromLiveKit.size} groupes → ${outputBuffers.size} outputs`);
+        // Copier les samples dans l'accumulateur
+        accumulator.buffer.set(float32Data, accumulator.offset);
+        accumulator.offset += samplesReceived;
 
-        // ÉTAPE 4 : Envoyer chaque output à la carte son
-        outputBuffers.forEach((outputBuffer, channelId) => {
-          const pcmBuffer = this._float32ToBuffer(outputBuffer);
+        // Si on a accumulé assez de samples (960), router vers les outputs
+        if (accumulator.offset >= 960) {
+          // Stocker le buffer complet pour le routing
+          this.groupBuffersFromLiveKit.set(groupName, accumulator.buffer);
 
-          console.log(`[AudioBridge FLUX 2] → Output ${channelId}: ${pcmBuffer.length} bytes vers carte son`);
+          // ÉTAPE 3 : Groupes → Outputs physiques (via GroupAudioRouter)
+          const outputBuffers = this.groupAudioRouter.processGroupsToOutputs(
+            this.groupBuffersFromLiveKit
+          );
 
-          // Envoyer à la carte son
-          this.audioBackend.queueAudio(pcmBuffer);
-        });
+          // ÉTAPE 4 : Envoyer chaque output à la carte son
+          outputBuffers.forEach((outputBuffer, channelId) => {
+            const pcmBuffer = this._float32ToBuffer(outputBuffer);
+            this.audioBackend.queueAudio(pcmBuffer);
+          });
 
-        this.stats.framesPlayback++;
+          // Réinitialiser l'accumulateur
+          accumulator.offset = 0;
+          accumulator.buffer.fill(0);
+
+          this.stats.framesPlayback++;
+        }
       } catch (error) {
         console.error('Erreur routing lecture:', error);
         this.stats.errors.playback++;
