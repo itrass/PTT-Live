@@ -372,26 +372,6 @@ export class AudioBridge extends EventEmitter {
 
       // Réception audio depuis les clients LiveKit de ce groupe
       client.on('audioData', ({ participantName, pcmData, sampleRate, channels }) => {
-        // Log premier frame pour diagnostic
-        if (!this._firstFrameLogged) {
-          // Calculer RMS pour détecter silence
-          let sumSquares = 0;
-          for (let i = 0; i < Math.min(240, pcmData.length); i++) {
-            sumSquares += pcmData[i] * pcmData[i];
-          }
-          const rms = Math.sqrt(sumSquares / Math.min(240, pcmData.length));
-          const dbFS = 20 * Math.log10(rms / 32768.0);
-
-          console.log(`🔍 Diagnostic audio LiveKit:
-  sampleRate: ${sampleRate}
-  channels: ${channels || 1} (défaut: 1 si undefined)
-  buffer size: ${pcmData.length} samples (${pcmData.length * 2} bytes)
-  buffer type: ${pcmData.constructor.name}
-  first 10 samples: [${Array.from(pcmData.slice(0, 10)).join(', ')}]
-  RMS level: ${rms.toFixed(0)} (${dbFS.toFixed(1)} dBFS)`);
-          this._firstFrameLogged = true;
-        }
-
         // Router vers le bon groupe
         this.emit('groupAudioIn', { groupName: groupId, pcmBuffer: pcmData });
       });
