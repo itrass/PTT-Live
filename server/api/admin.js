@@ -679,39 +679,46 @@ router.get('/devices/list', async (req, res) => {
 
     // Détection selon la plateforme
     if (process.platform === 'darwin') {
-      // macOS : utiliser CoreAudio via sox
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execPromise = promisify(exec);
-
+      // macOS : utiliser CoreAudioBackend.getDevices()
       try {
-        // Utiliser sox pour lister les devices audio
-        const { stdout } = await execPromise('sox -V6 2>&1');
+        const coreAudioDevices = CoreAudioBackend.getDevices();
 
-        // Parser la sortie sox pour extraire les devices
-        // Format typique : "Input Device [0]: MacBook Pro Microphone"
-        const inputMatches = stdout.matchAll(/Input Device \[(\d+)\]: (.+)/g);
-        const outputMatches = stdout.matchAll(/Output Device \[(\d+)\]: (.+)/g);
+        // Séparer inputs et outputs
+        coreAudioDevices.forEach(device => {
+          if (device.maxInputChannels > 0) {
+            devices.inputs.push({
+              id: device.name, // Utiliser le nom comme ID (compatible avec inputDeviceName)
+              name: device.name,
+              channels: device.maxInputChannels,
+              sampleRate: device.defaultSampleRate,
+              isDefault: device.isDefault?.input || false
+            });
+          }
 
-        for (const match of inputMatches) {
-          devices.inputs.push({
-            id: parseInt(match[1], 10),
-            name: match[2].trim()
-          });
+          if (device.maxOutputChannels > 0) {
+            devices.outputs.push({
+              id: device.name, // Utiliser le nom comme ID (compatible avec outputDeviceName)
+              name: device.name,
+              channels: device.maxOutputChannels,
+              sampleRate: device.defaultSampleRate,
+              isDefault: device.isDefault?.output || false
+            });
+          }
+        });
+
+        // Fallback si aucun device trouvé
+        if (devices.inputs.length === 0) {
+          devices.inputs.push({ id: 'builtin-mic', name: 'Built-in Microphone', isDefault: true });
         }
-
-        for (const match of outputMatches) {
-          devices.outputs.push({
-            id: parseInt(match[1], 10),
-            name: match[2].trim()
-          });
+        if (devices.outputs.length === 0) {
+          devices.outputs.push({ id: 'builtin-output', name: 'Built-in Output', isDefault: true });
         }
-      } catch (soxError) {
-        console.warn('⚠️  sox non disponible, devices limités:', soxError.message);
+      } catch (error) {
+        console.warn('⚠️  Détection CoreAudio échouée:', error.message);
 
         // Fallback : devices par défaut macOS
-        devices.inputs.push({ id: 0, name: 'Default Input (Built-in Microphone)', isDefault: true });
-        devices.outputs.push({ id: 0, name: 'Default Output (Built-in Speakers)', isDefault: true });
+        devices.inputs.push({ id: 'builtin-mic', name: 'Built-in Microphone', isDefault: true });
+        devices.outputs.push({ id: 'builtin-output', name: 'Built-in Output', isDefault: true });
       }
 
     } else if (process.platform === 'linux') {
