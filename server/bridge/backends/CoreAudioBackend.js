@@ -191,19 +191,17 @@ export class CoreAudioBackend extends EventEmitter {
 
       const args = [];
 
-      // Spécifier le device d'entrée
+      // Spécifier le device d'entrée (CoreAudio capture en 32-bit natif)
       if (this.options.inputDeviceName) {
-        // Utiliser le device spécifié par son nom
         args.push('-t', 'coreaudio', this.options.inputDeviceName);
       } else {
-        // Device par défaut
         args.push('-d');
       }
 
-      // Format de sortie (stdout)
+      // Format de sortie (stdout) - convertir 32→16 bit
       args.push(
-        '-t', 'raw',
-        '-b', '16',
+        '-t', 'raw',      // Format sortie raw PCM
+        '-b', '16',       // Convertir vers 16-bit
         '-e', 'signed-integer',
         '-c', String(this.options.channels),
         '-r', String(this.options.sampleRate),
