@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './Admin.css';
 import AudioRoutingMatrix from './components/AudioRoutingMatrix';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function Admin() {
-  const [activeTab, setActiveTab] = useState('groups');
+  // Lire l'onglet depuis l'URL hash (ex: #audio) ou utiliser 'groups' par défaut
+  const getInitialTab = () => {
+    const hash = window.location.hash.slice(1); // Enlever le #
+    return ['groups', 'audio', 'users', 'stats', 'logs'].includes(hash) ? hash : 'groups';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab());
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
@@ -19,11 +25,10 @@ function Admin() {
   const [selectedInputDevice, setSelectedInputDevice] = useState(null);
   const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
   const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
-  const [isEditingAudio, setIsEditingAudio] = useState(false);
+  const isEditingAudioRef = useRef(false);
 
   // Channel names (Phase 2.5)
   const [channelNames, setChannelNames] = useState({ inputs: {}, outputs: {} });
-  const [editingChannelNames, setEditingChannelNames] = useState(false);
 
   // Gestion formulaire nouveau groupe
   const [showGroupForm, setShowGroupForm] = useState(false);
@@ -32,6 +37,19 @@ function Admin() {
     name: '',
     audioBitrate: 96
   });
+
+  // Synchroniser l'onglet avec l'URL hash
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (['groups', 'audio', 'users', 'stats', 'logs'].includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Rafraîchissement automatique
   useEffect(() => {
@@ -106,8 +124,8 @@ function Admin() {
     setCurrentDevice(device);
     setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
 
-    // Ne réinitialiser les sélections que si l'utilisateur n'est pas en train d'éditer
-    if (!isEditingAudio) {
+    // Ne réinitialiser les sélections que lors du chargement initial (pas en train d'éditer)
+    if (!isEditingAudioRef.current) {
       setSelectedInputDevice(device.inputDeviceId ?? null);
       setSelectedOutputDevice(device.outputDeviceId ?? null);
       setSelectedSampleRate(device.sampleRate || 48000);
@@ -216,7 +234,6 @@ function Admin() {
 
       if (res.ok) {
         alert('Noms de canaux sauvegardés avec succès!');
-        setEditingChannelNames(false);
         await loadAudioDevices();
       } else {
         const error = await res.json();
@@ -251,7 +268,7 @@ function Admin() {
       });
 
       if (res.ok) {
-        setIsEditingAudio(false); // Désactiver le mode édition
+        isEditingAudioRef.current = false; // Désactiver le mode édition
         alert('Configuration audio sauvegardée avec succès!');
         await loadAudioDevices();
       } else {
@@ -311,31 +328,31 @@ function Admin() {
       <nav className="admin-tabs">
         <button
           className={activeTab === 'groups' ? 'active' : ''}
-          onClick={() => setActiveTab('groups')}
+          onClick={() => { window.location.hash = 'groups'; setActiveTab('groups'); }}
         >
           Groupes
         </button>
         <button
           className={activeTab === 'audio' ? 'active' : ''}
-          onClick={() => setActiveTab('audio')}
+          onClick={() => { window.location.hash = 'audio'; setActiveTab('audio'); }}
         >
           Audio
         </button>
         <button
           className={activeTab === 'users' ? 'active' : ''}
-          onClick={() => setActiveTab('users')}
+          onClick={() => { window.location.hash = 'users'; setActiveTab('users'); }}
         >
           Utilisateurs ({users.length})
         </button>
         <button
           className={activeTab === 'stats' ? 'active' : ''}
-          onClick={() => setActiveTab('stats')}
+          onClick={() => { window.location.hash = 'stats'; setActiveTab('stats'); }}
         >
           Statistiques
         </button>
         <button
           className={activeTab === 'logs' ? 'active' : ''}
-          onClick={() => setActiveTab('logs')}
+          onClick={() => { window.location.hash = 'logs'; setActiveTab('logs'); }}
         >
           Logs
         </button>
@@ -438,99 +455,95 @@ function Admin() {
 
             <div className="audio-config-container">
               <div className="audio-section">
-                <h3>Carte son d'entrée (Input)</h3>
-                <select
-                  value={selectedInputDevice ?? ''}
-                  onChange={(e) => {
-                    setIsEditingAudio(true);
-                    setSelectedInputDevice(e.target.value === '' ? null : e.target.value);
-                  }}
-                  className="device-select"
-                >
-                  <option value="">-- Sélectionner une carte --</option>
-                  {audioDevices
-                    .filter(d => d.maxInputChannels > 0)
-                    .map((device, index) => (
-                      <option key={`input-${device.id}-${index}`} value={device.id}>
-                        {device.name} - {device.maxInputChannels} canaux - {device.defaultSampleRate}Hz
-                      </option>
-                    ))}
-                </select>
-                {selectedInputDevice !== null && selectedInputDevice !== '' && (
-                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
-                    Device ID: {selectedInputDevice}
-                  </p>
-                )}
-              </div>
+                <h3>Configuration des cartes son</h3>
 
-              <div className="audio-section">
-                <h3>Carte son de sortie (Output)</h3>
-                <select
-                  value={selectedOutputDevice ?? ''}
-                  onChange={(e) => {
-                    setIsEditingAudio(true);
-                    setSelectedOutputDevice(e.target.value === '' ? null : e.target.value);
-                  }}
-                  className="device-select"
-                >
-                  <option value="">-- Sélectionner une carte --</option>
-                  {audioDevices
-                    .filter(d => d.maxOutputChannels > 0)
-                    .map((device, index) => (
-                      <option key={`output-${device.id}-${index}`} value={device.id}>
-                        {device.name} - {device.maxOutputChannels} canaux - {device.defaultSampleRate}Hz
-                      </option>
-                    ))}
-                </select>
-                {selectedOutputDevice !== null && selectedOutputDevice !== '' && (
-                  <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
-                    Device ID: {selectedOutputDevice}
-                  </p>
-                )}
-              </div>
+                <div style={{display: 'grid', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)'}}>
+                  <div>
+                    <label style={{display: 'block', marginBottom: 'var(--spacing-xs)', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)'}}>
+                      Carte son d'entrée (Input)
+                    </label>
+                    <select
+                      value={selectedInputDevice ?? ''}
+                      onChange={(e) => {
+                        isEditingAudioRef.current = true;
+                        setSelectedInputDevice(e.target.value === '' ? null : e.target.value);
+                      }}
+                      className="device-select"
+                    >
+                      <option value="">-- Sélectionner une carte --</option>
+                      {audioDevices
+                        .filter(d => d.maxInputChannels > 0)
+                        .map((device, index) => (
+                          <option key={`input-${device.id}-${index}`} value={device.id}>
+                            {device.name} - {device.maxInputChannels} canaux - {device.defaultSampleRate}Hz
+                          </option>
+                        ))}
+                    </select>
+                    {selectedInputDevice !== null && selectedInputDevice !== '' && (
+                      <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
+                        Device ID: {selectedInputDevice}
+                      </p>
+                    )}
+                  </div>
 
-              <div className="audio-section">
-                <h3>Sample Rate</h3>
-                <select
-                  value={selectedSampleRate}
-                  onChange={(e) => {
-                    setIsEditingAudio(true);
-                    setSelectedSampleRate(parseInt(e.target.value));
-                  }}
-                  className="device-select"
-                >
-                  <option value={44100}>44100 Hz (CD quality)</option>
-                  <option value={48000}>48000 Hz (Recommended)</option>
-                  <option value={96000}>96000 Hz (High quality)</option>
-                </select>
-              </div>
+                  <div>
+                    <label style={{display: 'block', marginBottom: 'var(--spacing-xs)', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)'}}>
+                      Carte son de sortie (Output)
+                    </label>
+                    <select
+                      value={selectedOutputDevice ?? ''}
+                      onChange={(e) => {
+                        isEditingAudioRef.current = true;
+                        setSelectedOutputDevice(e.target.value === '' ? null : e.target.value);
+                      }}
+                      className="device-select"
+                    >
+                      <option value="">-- Sélectionner une carte --</option>
+                      {audioDevices
+                        .filter(d => d.maxOutputChannels > 0)
+                        .map((device, index) => (
+                          <option key={`output-${device.id}-${index}`} value={device.id}>
+                            {device.name} - {device.maxOutputChannels} canaux - {device.defaultSampleRate}Hz
+                          </option>
+                        ))}
+                    </select>
+                    {selectedOutputDevice !== null && selectedOutputDevice !== '' && (
+                      <p style={{marginTop: 'var(--spacing-sm)', color: 'var(--color-text-secondary)', fontSize: '0.85rem', wordBreak: 'break-all'}}>
+                        Device ID: {selectedOutputDevice}
+                      </p>
+                    )}
+                  </div>
 
-              <div className="audio-actions">
-                <button onClick={handleSaveAudioDevice} className="btn-primary">
-                  Sauvegarder la configuration
-                </button>
-              </div>
-
-              <div className="audio-section">
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)'}}>
-                  <h3>Nommage des canaux physiques</h3>
-                  {!editingChannelNames ? (
-                    <button onClick={() => setEditingChannelNames(true)} className="btn-secondary">
-                      Modifier les noms
-                    </button>
-                  ) : (
-                    <div style={{display: 'flex', gap: 'var(--spacing-sm)'}}>
-                      <button onClick={handleSaveChannelNames} className="btn-primary">
-                        Sauvegarder
-                      </button>
-                      <button onClick={() => { setEditingChannelNames(false); loadAudioDevices(); }} className="btn-secondary">
-                        Annuler
-                      </button>
-                    </div>
-                  )}
+                  <div>
+                    <label style={{display: 'block', marginBottom: 'var(--spacing-xs)', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-text-secondary)'}}>
+                      Sample Rate
+                    </label>
+                    <select
+                      value={selectedSampleRate}
+                      onChange={(e) => {
+                        isEditingAudioRef.current = true;
+                        setSelectedSampleRate(parseInt(e.target.value));
+                      }}
+                      className="device-select"
+                    >
+                      <option value={44100}>44100 Hz (CD quality)</option>
+                      <option value={48000}>48000 Hz (Recommended)</option>
+                      <option value={96000}>96000 Hz (High quality)</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)'}}>
+                <div className="audio-actions">
+                  <button onClick={handleSaveAudioDevice} className="btn-primary">
+                    Sauvegarder la configuration audio
+                  </button>
+                </div>
+              </div>
+
+              <div className="audio-section">
+                <h3>Nommage des canaux physiques</h3>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)', marginTop: 'var(--spacing-md)'}}>
                   <div>
                     <h4 style={{marginBottom: 'var(--spacing-md)', color: 'var(--color-text-secondary)'}}>
                       Entrées (Inputs) - {currentDevice.inputChannels || 0} canaux disponibles
@@ -544,10 +557,9 @@ function Admin() {
                             value={channelNames.inputs?.[i] || ''}
                             onChange={(e) => updateChannelName('inputs', i, e.target.value)}
                             placeholder={`Input ${i}`}
-                            disabled={!editingChannelNames}
                             style={{
                               padding: 'var(--spacing-sm)',
-                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              background: 'var(--color-bg)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '6px',
                               color: 'var(--color-text)',
@@ -572,10 +584,9 @@ function Admin() {
                             value={channelNames.outputs?.[i] || ''}
                             onChange={(e) => updateChannelName('outputs', i, e.target.value)}
                             placeholder={`Output ${i}`}
-                            disabled={!editingChannelNames}
                             style={{
                               padding: 'var(--spacing-sm)',
-                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              background: 'var(--color-bg)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '6px',
                               color: 'var(--color-text)',
@@ -586,6 +597,12 @@ function Admin() {
                       ))}
                     </div>
                   </div>
+                </div>
+
+                <div className="audio-actions">
+                  <button onClick={handleSaveChannelNames} className="btn-primary">
+                    Sauvegarder les noms des canaux
+                  </button>
                 </div>
               </div>
 

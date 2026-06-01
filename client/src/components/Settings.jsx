@@ -4,9 +4,7 @@ import './Settings.css';
 const STORAGE_KEY = 'ptt-live-settings';
 
 const defaultSettings = {
-  defaultPTTMode: 'normal', // 'normal' ou 'continuous'
-  vibrationEnabled: true,
-  audioFeedbackEnabled: true
+  vibrationEnabled: true
 };
 
 /**
@@ -69,39 +67,6 @@ export default function Settings({ isOpen, onClose }) {
 
         <div className="settings-content">
           <div className="setting-section">
-            <h3>Mode PTT</h3>
-            <p className="setting-description">
-              Choisissez le mode de fonctionnement par défaut du bouton PTT
-            </p>
-
-            <label className="radio-option">
-              <input
-                type="radio"
-                name="pttMode"
-                checked={settings.defaultPTTMode === 'normal'}
-                onChange={() => handleChange('defaultPTTMode', 'normal')}
-              />
-              <div>
-                <strong>Mode normal (Push-To-Talk)</strong>
-                <p>Maintenir le bouton pour parler, relâcher pour arrêter</p>
-              </div>
-            </label>
-
-            <label className="radio-option">
-              <input
-                type="radio"
-                name="pttMode"
-                checked={settings.defaultPTTMode === 'continuous'}
-                onChange={() => handleChange('defaultPTTMode', 'continuous')}
-              />
-              <div>
-                <strong>Mode continu (verrouillé)</strong>
-                <p>Un appui active le micro en continu, un second appui le désactive</p>
-              </div>
-            </label>
-          </div>
-
-          <div className="setting-section">
             <h3>Feedback</h3>
 
             <label className="checkbox-option">
@@ -112,19 +77,7 @@ export default function Settings({ isOpen, onClose }) {
               />
               <div>
                 <strong>Vibrations</strong>
-                <p>Activer le retour haptique (si disponible)</p>
-              </div>
-            </label>
-
-            <label className="checkbox-option">
-              <input
-                type="checkbox"
-                checked={settings.audioFeedbackEnabled}
-                onChange={(e) => handleChange('audioFeedbackEnabled', e.target.checked)}
-              />
-              <div>
-                <strong>Feedback audio</strong>
-                <p>Sons de confirmation pour les actions</p>
+                <p>Activer le retour haptique lors du verrouillage PTT</p>
               </div>
             </label>
           </div>

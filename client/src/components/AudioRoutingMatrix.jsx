@@ -194,19 +194,14 @@ function AudioRoutingMatrix({ groups, channelNames }) {
             {wsConnected ? '● Live' : '○ Offline'}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showOnlyNamedChannels}
-              onChange={(e) => setShowOnlyNamedChannels(e.target.checked)}
-            />
-            <span>Afficher uniquement les canaux nommés</span>
-          </label>
-          <button onClick={saveRouting} className="btn-primary">
-            Sauvegarder le routing
-          </button>
-        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={showOnlyNamedChannels}
+            onChange={(e) => setShowOnlyNamedChannels(e.target.checked)}
+          />
+          <span>Afficher uniquement les canaux nommés</span>
+        </label>
       </div>
 
       <div className="routing-section">
@@ -340,6 +335,12 @@ function AudioRoutingMatrix({ groups, channelNames }) {
             </React.Fragment>
           ))}
         </div>
+      </div>
+
+      <div className="routing-actions">
+        <button onClick={saveRouting} className="btn-primary">
+          Sauvegarder le routing audio
+        </button>
       </div>
     </div>
   );
