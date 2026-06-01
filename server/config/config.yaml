@@ -1,17 +1,20 @@
 audio:
   sampleRate: 48000
+  channels: 2
   frameSize: 20
   defaultBitrate: 96
   jitterBufferMs: 40
   device:
-    inputDeviceId: Microphone MacBook Pro
+    inputDeviceId: Loopback Audio 4
     outputDeviceId: Haut-parleurs MacBook Pro
     sampleRate: 48000
   routing:
     inputToGroup:
       "0":
         - production
-      "1": []
+        - default
+      "1":
+        - default
       "2": []
       "4":
         - technique
@@ -23,28 +26,30 @@ audio:
       production:
         - "0"
         - "1"
+      default:
+        - "0"
     gains: {}
   channelNames:
     inputs:
-      "0": iphone
+      "0": Mac
       "1": Talkback FOH
       "2": Retour Console
       "3": Liaison Scène
       "4": Monitor Mix
       "5": Spare 1
     outputs:
-      "0": Sortie Principale
-      "1": Retour Scène
+      "0": L
+      "1": R
       "2": Talkback Console
 groups:
+  - name: Default
+    audioBitrate: 96
+    channels: []
   - name: Production
     audioBitrate: 96
     channels: []
   - name: Technique
     audioBitrate: 96
-    channels: []
-  - name: Sonorisation
-    audioBitrate: 128
     channels: []
 server:
   host: 0.0.0.0

@@ -184,30 +184,33 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      // Commande sox pour capturer audio
-      // rec : enregistrer depuis input par défaut
-      // -t raw : format raw PCM
-      // -b 16 : 16-bit
-      // -e signed-integer : signed PCM
-      // -c 1 : mono (ou nombre de canaux)
-      // -r 48000 : sample rate
-      // - : sortie vers stdout
-      const args = [
-        '-t', 'coreaudio',  // Driver CoreAudio
-        'default',          // Device par défaut (ou spécifier nom)
+      // Commande sox pour capturer audio sur macOS
+      // Sur macOS, sox utilise CoreAudio par défaut via 'rec' (alias de sox -d)
+      // Format: sox -d [options] output
+      // -d = default input device OU -t coreaudio "Device Name"
+
+      const args = [];
+
+      // Spécifier le device d'entrée
+      if (this.options.inputDeviceName) {
+        // Utiliser le device spécifié par son nom
+        args.push('-t', 'coreaudio', this.options.inputDeviceName);
+      } else {
+        // Device par défaut
+        args.push('-d');
+      }
+
+      // Format de sortie (stdout)
+      args.push(
         '-t', 'raw',
         '-b', '16',
         '-e', 'signed-integer',
-        `-c`, String(this.options.channels),
-        `-r`, String(this.options.sampleRate),
+        '-c', String(this.options.channels),
+        '-r', String(this.options.sampleRate),
         '-'  // Stdout
-      ];
+      );
 
-      // Si device spécifié
-      if (this.options.inputDeviceName) {
-        args[2] = this.options.inputDeviceName;  // Index 2 = device name
-      }
-
+      console.log(`🎤 Démarrage capture sox: ${args.join(' ')}`);
       this.captureProcess = spawn('sox', args);
 
       this.captureProcess.stdout.on('data', (audioData) => {
@@ -265,27 +268,31 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      // Commande sox pour lecture audio
-      // play : lire vers output par défaut
-      // -t raw : format raw PCM depuis stdin
-      // --buffer : taille du buffer interne sox (en bytes)
+      // Commande sox pour lecture audio sur macOS
+      // Format: sox [options] input output
+      // Input = stdin (-)
+      // Output = -d (default) OU -t coreaudio "Device Name"
+
       const args = [
         '--buffer', '8192',  // Buffer interne sox
         '-t', 'raw',
         '-b', '16',
         '-e', 'signed-integer',
-        `-c`, String(this.options.channels),
-        `-r`, String(this.options.sampleRate),
-        '-',  // Stdin
-        '-t', 'coreaudio',
-        'default'  // Device par défaut
+        '-c', String(this.options.channels),
+        '-r', String(this.options.sampleRate),
+        '-'  // Input = stdin
       ];
 
-      // Si device spécifié
+      // Spécifier le device de sortie
       if (this.options.outputDeviceName) {
-        args[args.length - 1] = this.options.outputDeviceName;
+        // Utiliser le device spécifié par son nom
+        args.push('-t', 'coreaudio', this.options.outputDeviceName);
+      } else {
+        // Device par défaut
+        args.push('-d');
       }
 
+      console.log(`🔊 Démarrage playback sox: ${args.join(' ')}`);
       this.playbackProcess = spawn('sox', args, {
         stdio: ['pipe', 'ignore', 'pipe']  // stdin=pipe, stdout=ignore, stderr=pipe
       });

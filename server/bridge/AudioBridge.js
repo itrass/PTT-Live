@@ -399,10 +399,30 @@ export class AudioBridge extends EventEmitter {
         // Convertir PCM Buffer → Float32Array (pour GroupAudioRouter)
         const float32Data = this._bufferToFloat32(pcmData);
 
-        // Pour l'instant, on assume que l'audio vient du canal 0
-        // TODO: Supporter multi-canaux depuis la carte son
-        const channelId = this.options.inputDeviceChannel || 0;
-        this.inputChannelBuffers.set(channelId, float32Data);
+        // Séparer les canaux si audio multi-canaux (entrelacé)
+        const numChannels = this.options.channels || 1;
+
+        if (numChannels === 1) {
+          // Mono : un seul canal
+          const channelId = this.options.inputDeviceChannel || 0;
+          this.inputChannelBuffers.set(channelId, float32Data);
+        } else {
+          // Multi-canaux : dé-entrelacer les samples
+          // Format entrelacé : [L0, R0, L1, R1, ...] → [L0, L1, ...] et [R0, R1, ...]
+          const samplesPerChannel = float32Data.length / numChannels;
+
+          for (let ch = 0; ch < numChannels; ch++) {
+            const channelBuffer = new Float32Array(samplesPerChannel);
+
+            for (let i = 0; i < samplesPerChannel; i++) {
+              channelBuffer[i] = float32Data[i * numChannels + ch];
+            }
+
+            // Mapper canal hardware → canal logique (peut être configuré)
+            const logicalChannelId = this.options.channelMapping?.[ch] ?? ch;
+            this.inputChannelBuffers.set(logicalChannelId, channelBuffer);
+          }
+        }
 
         // ÉTAPE 1 : Inputs physiques → Groupes (via GroupAudioRouter)
         const groupBuffers = this.groupAudioRouter.processInputsToGroups(
@@ -415,10 +435,23 @@ export class AudioBridge extends EventEmitter {
 
         // ÉTAPE 2 : Pour chaque groupe, envoyer vers le LiveKitClient correspondant
         groupBuffers.forEach((groupBuffer, groupName) => {
-          // Convertir Float32Array → PCM Buffer
-          const pcmBuffer = this._float32ToBuffer(groupBuffer);
+          // Les groupes sont MONO (Float32Array de N samples)
+          // Mais LiveKit attend du STÉRÉO (2 canaux)
+          // → Dupliquer le canal mono pour créer du faux stéréo
 
-          // Encoder en Opus
+          const samplesPerChannel = groupBuffer.length;
+          const stereoBuffer = new Float32Array(samplesPerChannel * 2);
+
+          // Entrelacer : [M0, M1, M2, ...] → [M0, M0, M1, M1, M2, M2, ...]
+          for (let i = 0; i < samplesPerChannel; i++) {
+            stereoBuffer[i * 2] = groupBuffer[i];     // Canal gauche
+            stereoBuffer[i * 2 + 1] = groupBuffer[i]; // Canal droit (dupliqué)
+          }
+
+          // Convertir Float32Array stéréo → PCM Buffer
+          const pcmBuffer = this._float32ToBuffer(stereoBuffer);
+
+          // Encoder en Opus (maintenant en stéréo)
           const opusData = this.opusEncoder.encode(pcmBuffer);
 
           if (opusData) {
@@ -432,7 +465,7 @@ export class AudioBridge extends EventEmitter {
             if (client && client.isConnected) {
               client.sendAudioData(pcmBuffer);
               if (this.stats.framesCapture % 100 === 0) {
-                console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes`);
+                console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes (mono→stéréo)`);
               }
             } else {
               if (this.stats.framesCapture % 100 === 0) {
@@ -453,16 +486,53 @@ export class AudioBridge extends EventEmitter {
         }
 
         // ÉTAPE 4 : Envoyer chaque output à la carte son
-        outputBuffers.forEach((outputBuffer, channelId) => {
-          const pcmBuffer = this._float32ToBuffer(outputBuffer);
+        const numOutputChannels = this.options.channels || 1;
 
-          // Envoyer à la carte son
+        if (numOutputChannels === 1) {
+          // Mono : un seul output
+          if (outputBuffers.size > 0) {
+            const [firstChannelId, outputBuffer] = outputBuffers.entries().next().value;
+            const pcmBuffer = this._float32ToBuffer(outputBuffer);
+            this.audioBackend.queueAudio(pcmBuffer);
+
+            if (this.stats.framesCapture % 100 === 0) {
+              console.log(`[AudioBridge] → Output mono (canal ${firstChannelId}): ${pcmBuffer.length} bytes`);
+            }
+          }
+        } else {
+          // Multi-canaux : entrelacer les samples
+          // Récupérer les buffers dans l'ordre des canaux hardware
+          const channelBuffers = [];
+          const samplesPerChannel = this.options.frameSize;
+
+          for (let ch = 0; ch < numOutputChannels; ch++) {
+            const logicalChannelId = this.options.channelMapping?.[ch] ?? ch;
+            const buffer = outputBuffers.get(logicalChannelId);
+
+            if (buffer && buffer.length === samplesPerChannel) {
+              channelBuffers.push(buffer);
+            } else {
+              // Canal absent ou taille incorrecte : silence
+              channelBuffers.push(new Float32Array(samplesPerChannel));
+            }
+          }
+
+          // Entrelacer : [L0, L1, ...] et [R0, R1, ...] → [L0, R0, L1, R1, ...]
+          const interleavedBuffer = new Float32Array(samplesPerChannel * numOutputChannels);
+
+          for (let i = 0; i < samplesPerChannel; i++) {
+            for (let ch = 0; ch < numOutputChannels; ch++) {
+              interleavedBuffer[i * numOutputChannels + ch] = channelBuffers[ch][i];
+            }
+          }
+
+          const pcmBuffer = this._float32ToBuffer(interleavedBuffer);
           this.audioBackend.queueAudio(pcmBuffer);
 
           if (this.stats.framesCapture % 100 === 0) {
-            console.log(`[AudioBridge] → Output ${channelId}: ${pcmBuffer.length} bytes`);
+            console.log(`[AudioBridge] → Output multi-canaux (${numOutputChannels}ch): ${pcmBuffer.length} bytes`);
           }
-        });
+        }
 
         this.stats.framesCapture++;
         this.stats.framesPlayback++;
