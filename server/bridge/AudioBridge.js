@@ -430,52 +430,65 @@ export class AudioBridge extends EventEmitter {
         );
 
         if (this.stats.framesCapture % 100 === 0) {
-          console.log(`[AudioBridge] Frame ${this.stats.framesCapture}: ${this.inputChannelBuffers.size} inputs → ${groupBuffers.size} groupes`);
+          // Détecter si l'audio est du silence (toutes les samples < 0.001)
+          let totalEnergy = 0;
+          this.inputChannelBuffers.forEach((buffer) => {
+            for (let i = 0; i < buffer.length; i++) {
+              totalEnergy += Math.abs(buffer[i]);
+            }
+          });
+          const avgEnergy = totalEnergy / (this.inputChannelBuffers.size * (this.options.frameSize || 960));
+          console.log(`[AudioBridge] Frame ${this.stats.framesCapture}: ${this.inputChannelBuffers.size} inputs → ${groupBuffers.size} groupes | Énergie audio: ${avgEnergy.toFixed(6)}`);
         }
 
         // ÉTAPE 2 : Pour chaque groupe, envoyer vers le LiveKitClient correspondant
         groupBuffers.forEach((groupBuffer, groupName) => {
           // Les groupes sont MONO (Float32Array de N samples)
-          // Mais LiveKit attend du STÉRÉO (2 canaux)
-          // → Dupliquer le canal mono pour créer du faux stéréo
+          // Mais la config globale peut être STÉRÉO (channels=2)
+          // → Adapter selon la configuration
 
-          const samplesPerChannel = groupBuffer.length;
-          const stereoBuffer = new Float32Array(samplesPerChannel * 2);
+          let pcmBuffer;
+          const configChannels = this.options.channels || 1;
 
-          // Entrelacer : [M0, M1, M2, ...] → [M0, M0, M1, M1, M2, M2, ...]
-          for (let i = 0; i < samplesPerChannel; i++) {
-            stereoBuffer[i * 2] = groupBuffer[i];     // Canal gauche
-            stereoBuffer[i * 2 + 1] = groupBuffer[i]; // Canal droit (dupliqué)
-          }
+          if (configChannels === 1) {
+            // Config MONO : envoyer directement
+            pcmBuffer = this._float32ToBuffer(groupBuffer);
+          } else if (configChannels === 2) {
+            // Config STÉRÉO : dupliquer le canal mono
+            const samplesPerChannel = groupBuffer.length;
+            const stereoBuffer = new Float32Array(samplesPerChannel * 2);
 
-          // Convertir Float32Array stéréo → PCM Buffer
-          const pcmBuffer = this._float32ToBuffer(stereoBuffer);
-
-          // Encoder en Opus (maintenant en stéréo)
-          const opusData = this.opusEncoder.encode(pcmBuffer);
-
-          if (opusData) {
-            this.stats.bytesEncoded += opusData.length;
-
-            // Récupérer le client LiveKit pour ce groupe
-            const client = this.liveKitClients.get(groupName);
-
-            // Envoi vers LiveKit via sendAudioData (prend du PCM, pas de l'Opus)
-            // Note: LiveKit gère lui-même l'encodage Opus en interne
-            if (client && client.isConnected) {
-              client.sendAudioData(pcmBuffer);
-              if (this.stats.framesCapture % 100 === 0) {
-                console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes (mono→stéréo)`);
-              }
-            } else {
-              if (this.stats.framesCapture % 100 === 0) {
-                console.log(`[AudioBridge] ⚠️  LiveKit non connecté pour groupe "${groupName}", audio non envoyé`);
-              }
+            // Entrelacer : [M0, M1, M2, ...] → [M0, M0, M1, M1, M2, M2, ...]
+            for (let i = 0; i < samplesPerChannel; i++) {
+              stereoBuffer[i * 2] = groupBuffer[i];     // Canal gauche
+              stereoBuffer[i * 2 + 1] = groupBuffer[i]; // Canal droit (dupliqué)
             }
 
-            // Émettre aussi pour monitoring/debug
-            this.emit('groupAudioOut', { groupName, opusData, pcmBuffer });
+            pcmBuffer = this._float32ToBuffer(stereoBuffer);
+          } else {
+            console.error(`❌ Nombre de canaux non supporté: ${configChannels}`);
+            return;
           }
+
+          // Récupérer le client LiveKit pour ce groupe
+          const client = this.liveKitClients.get(groupName);
+
+          // Envoi vers LiveKit via sendAudioData (prend du PCM 16-bit)
+          // Note: LiveKit gère lui-même l'encodage Opus en interne
+          if (client && client.isConnected) {
+            client.sendAudioData(pcmBuffer);
+            if (this.stats.framesCapture % 100 === 0) {
+              const channelLabel = configChannels === 1 ? 'mono' : `${configChannels}ch`;
+              console.log(`[AudioBridge] → LiveKit groupe "${groupName}": ${pcmBuffer.length} bytes (${channelLabel})`);
+            }
+          } else {
+            if (this.stats.framesCapture % 100 === 0) {
+              console.log(`[AudioBridge] ⚠️  LiveKit non connecté pour groupe "${groupName}", audio non envoyé`);
+            }
+          }
+
+          // Émettre aussi pour monitoring/debug
+          this.emit('groupAudioOut', { groupName, pcmBuffer });
         });
 
         // ÉTAPE 3 : Loopback local - Groupes → Outputs physiques (sans passer par LiveKit)

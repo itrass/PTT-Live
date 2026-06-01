@@ -264,11 +264,18 @@ export class LiveKitClient extends EventEmitter {
     }
 
     try {
-      // Création d'un AudioFrame (conversion en int32 explicite)
-      const samplesPerChannel = Math.floor(pcmData.length / 2 / this.options.channels);
+      // AudioFrame attend Int16Array, pas Buffer
+      // Convertir Buffer → Int16Array (éviter .slice, utiliser .subarray selon doc)
+      const int16Array = new Int16Array(
+        pcmData.buffer,
+        pcmData.byteOffset,
+        pcmData.length / 2  // length en samples, pas en bytes
+      );
+
+      const samplesPerChannel = Math.floor(int16Array.length / this.options.channels);
 
       const frame = new AudioFrame(
-        pcmData,
+        int16Array,
         parseInt(this.options.sampleRate, 10),
         parseInt(this.options.channels, 10),
         samplesPerChannel

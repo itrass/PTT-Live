@@ -11,10 +11,8 @@ audio:
   routing:
     inputToGroup:
       "0":
-        - production
         - default
-      "1":
-        - default
+      "1": []
       "2": []
       "4":
         - technique
