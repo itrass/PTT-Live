@@ -22,16 +22,6 @@ export default function PTTButton({ isTalking, onPressStart, onPressEnd, audioLe
   const currentYRef = useRef(null);
   const [dragOffset, setDragOffset] = useState(0); // Offset visuel du drag (en pixels)
 
-  // Initialiser le mode selon les préférences au démarrage
-  useEffect(() => {
-    const currentSettings = loadSettings();
-    if (currentSettings.defaultPTTMode === 'continuous') {
-      setIsLockMode(true);
-      isLockModeRef.current = true;
-      console.log('Mode continu activé par défaut (préférences)');
-    }
-  }, []);
-
   useEffect(() => {
     const button = buttonRef.current;
     if (!button) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './Admin.css';
 import AudioRoutingMatrix from './components/AudioRoutingMatrix';
 
@@ -19,11 +19,12 @@ function Admin() {
   const [selectedInputDevice, setSelectedInputDevice] = useState(null);
   const [selectedOutputDevice, setSelectedOutputDevice] = useState(null);
   const [selectedSampleRate, setSelectedSampleRate] = useState(48000);
-  const [isEditingAudio, setIsEditingAudio] = useState(false);
+  const isEditingAudioRef = useRef(false);
 
   // Channel names (Phase 2.5)
   const [channelNames, setChannelNames] = useState({ inputs: {}, outputs: {} });
-  const [editingChannelNames, setEditingChannelNames] = useState(false);
+  const editingChannelNamesRef = useRef(false);
+  const [, forceUpdate] = useState({});
 
   // Gestion formulaire nouveau groupe
   const [showGroupForm, setShowGroupForm] = useState(false);
@@ -104,10 +105,14 @@ function Admin() {
 
     const device = currentData.device || { inputChannels: 8, outputChannels: 8 };
     setCurrentDevice(device);
-    setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
 
-    // Ne réinitialiser les sélections que si l'utilisateur n'est pas en train d'éditer
-    if (!isEditingAudio) {
+    // Ne pas écraser les noms de canaux pendant l'édition
+    if (!editingChannelNamesRef.current) {
+      setChannelNames(channelNamesData.channelNames || { inputs: {}, outputs: {} });
+    }
+
+    // Ne réinitialiser les sélections que lors du chargement initial (pas en train d'éditer)
+    if (!isEditingAudioRef.current) {
       setSelectedInputDevice(device.inputDeviceId ?? null);
       setSelectedOutputDevice(device.outputDeviceId ?? null);
       setSelectedSampleRate(device.sampleRate || 48000);
@@ -216,7 +221,8 @@ function Admin() {
 
       if (res.ok) {
         alert('Noms de canaux sauvegardés avec succès!');
-        setEditingChannelNames(false);
+        editingChannelNamesRef.current = false;
+        forceUpdate({});
         await loadAudioDevices();
       } else {
         const error = await res.json();
@@ -251,7 +257,7 @@ function Admin() {
       });
 
       if (res.ok) {
-        setIsEditingAudio(false); // Désactiver le mode édition
+        isEditingAudioRef.current = false; // Désactiver le mode édition
         alert('Configuration audio sauvegardée avec succès!');
         await loadAudioDevices();
       } else {
@@ -442,7 +448,7 @@ function Admin() {
                 <select
                   value={selectedInputDevice ?? ''}
                   onChange={(e) => {
-                    setIsEditingAudio(true);
+                    isEditingAudioRef.current = true;
                     setSelectedInputDevice(e.target.value === '' ? null : e.target.value);
                   }}
                   className="device-select"
@@ -468,7 +474,7 @@ function Admin() {
                 <select
                   value={selectedOutputDevice ?? ''}
                   onChange={(e) => {
-                    setIsEditingAudio(true);
+                    isEditingAudioRef.current = true;
                     setSelectedOutputDevice(e.target.value === '' ? null : e.target.value);
                   }}
                   className="device-select"
@@ -494,7 +500,7 @@ function Admin() {
                 <select
                   value={selectedSampleRate}
                   onChange={(e) => {
-                    setIsEditingAudio(true);
+                    isEditingAudioRef.current = true;
                     setSelectedSampleRate(parseInt(e.target.value));
                   }}
                   className="device-select"
@@ -514,8 +520,8 @@ function Admin() {
               <div className="audio-section">
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)'}}>
                   <h3>Nommage des canaux physiques</h3>
-                  {!editingChannelNames ? (
-                    <button onClick={() => setEditingChannelNames(true)} className="btn-secondary">
+                  {!editingChannelNamesRef.current ? (
+                    <button onClick={() => { editingChannelNamesRef.current = true; forceUpdate({}); }} className="btn-secondary">
                       Modifier les noms
                     </button>
                   ) : (
@@ -523,7 +529,7 @@ function Admin() {
                       <button onClick={handleSaveChannelNames} className="btn-primary">
                         Sauvegarder
                       </button>
-                      <button onClick={() => { setEditingChannelNames(false); loadAudioDevices(); }} className="btn-secondary">
+                      <button onClick={() => { editingChannelNamesRef.current = false; forceUpdate({}); loadAudioDevices(); }} className="btn-secondary">
                         Annuler
                       </button>
                     </div>
@@ -544,10 +550,10 @@ function Admin() {
                             value={channelNames.inputs?.[i] || ''}
                             onChange={(e) => updateChannelName('inputs', i, e.target.value)}
                             placeholder={`Input ${i}`}
-                            disabled={!editingChannelNames}
+                            disabled={!editingChannelNamesRef.current}
                             style={{
                               padding: 'var(--spacing-sm)',
-                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              background: editingChannelNamesRef.current ? 'var(--color-bg)' : 'var(--color-surface-hover)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '6px',
                               color: 'var(--color-text)',
@@ -572,10 +578,10 @@ function Admin() {
                             value={channelNames.outputs?.[i] || ''}
                             onChange={(e) => updateChannelName('outputs', i, e.target.value)}
                             placeholder={`Output ${i}`}
-                            disabled={!editingChannelNames}
+                            disabled={!editingChannelNamesRef.current}
                             style={{
                               padding: 'var(--spacing-sm)',
-                              background: editingChannelNames ? 'var(--color-bg)' : 'var(--color-surface-hover)',
+                              background: editingChannelNamesRef.current ? 'var(--color-bg)' : 'var(--color-surface-hover)',
                               border: '1px solid var(--color-border)',
                               borderRadius: '6px',
                               color: 'var(--color-text)',
