@@ -216,6 +216,21 @@ export class GroupAudioRouter extends EventEmitter {
       this.groupBuffers.set(groupId, new Float32Array(this.config.frameSize));
     });
 
+    // Compter le nombre de sources par groupe pour normalisation
+    const groupSourceCount = new Map();
+    inputChannelsData.forEach((_, channelId) => {
+      const key = `in_${channelId}`;
+      const routes = this.inputToGroupRoutes.get(key);
+      if (routes) {
+        routes.forEach(route => {
+          groupSourceCount.set(
+            route.destination,
+            (groupSourceCount.get(route.destination) || 0) + 1
+          );
+        });
+      }
+    });
+
     // Pour chaque canal d'entrée
     inputChannelsData.forEach((pcmData, channelId) => {
       const key = `in_${channelId}`;
@@ -234,9 +249,12 @@ export class GroupAudioRouter extends EventEmitter {
           return;
         }
 
-        // Mixage avec gain
+        // Mixage avec gain + atténuation par nombre de sources
+        const sourceCount = groupSourceCount.get(route.destination) || 1;
+        const mixGain = route.linearGain / sourceCount;
+
         for (let i = 0; i < pcmData.length && i < groupBuffer.length; i++) {
-          groupBuffer[i] += pcmData[i] * route.linearGain;
+          groupBuffer[i] += pcmData[i] * mixGain;
         }
       });
     });

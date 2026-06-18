@@ -108,17 +108,20 @@ function Admin() {
   };
 
   const loadAudioDevices = async () => {
-    const [devicesRes, currentDeviceRes, channelNamesRes] = await Promise.all([
+    const [devicesRes, currentDeviceRes, channelNamesRes, groupsRes] = await Promise.all([
       fetch(`${API_URL}/admin/audio/devices`),
       fetch(`${API_URL}/admin/audio/device`),
-      fetch(`${API_URL}/admin/audio/channels/names`)
+      fetch(`${API_URL}/admin/audio/channels/names`),
+      fetch(`${API_URL}/admin/groups`)
     ]);
 
     const devicesData = await devicesRes.json();
     const currentData = await currentDeviceRes.json();
     const channelNamesData = await channelNamesRes.json();
+    const groupsData = await groupsRes.json();
 
     setAudioDevices(devicesData.devices || []);
+    setGroups(groupsData.groups || []);
 
     const device = currentData.device || { inputChannels: 8, outputChannels: 8 };
     setCurrentDevice(device);

@@ -30,6 +30,12 @@ export class JACKBackend extends EventEmitter {
     this.jackProcess = null;
     this.isCapturing = false;
     this.isPlaying = false;
+    this.shuttingDown = false;
+
+    // Buffer d'accumulation pour la capture (JACK peut envoyer des chunks de taille variable)
+    this.captureAccumulator = Buffer.alloc(0);
+    this.targetCaptureBytes = this.options.framesPerBuffer * 2 * this.options.channels; // 2 bytes per sample
+
     this.playbackBuffer = [];
     this.maxBufferSize = 10;
 
@@ -213,8 +219,17 @@ export class JACKBackend extends EventEmitter {
       ]);
 
       this.jackProcess.stdout.on('data', (audioData) => {
-        // Émet les données audio capturées (Buffer PCM 16-bit)
-        this.emit('audioData', audioData);
+        // Accumuler les données jusqu'à avoir un frame complet
+        this.captureAccumulator = Buffer.concat([this.captureAccumulator, audioData]);
+
+        // Émettre des frames de taille fixe
+        while (this.captureAccumulator.length >= this.targetCaptureBytes) {
+          const frame = this.captureAccumulator.subarray(0, this.targetCaptureBytes);
+          this.emit('audioData', Buffer.from(frame)); // Copier pour éviter les références
+
+          // Garder le reste pour la prochaine frame
+          this.captureAccumulator = this.captureAccumulator.subarray(this.targetCaptureBytes);
+        }
       });
 
       this.jackProcess.stderr.on('data', (data) => {
@@ -248,6 +263,7 @@ export class JACKBackend extends EventEmitter {
       this.jackProcess.kill('SIGTERM');
       this.jackProcess = null;
       this.isCapturing = false;
+      this.captureAccumulator = Buffer.alloc(0); // Reset accumulator
       console.log('✓ Capture JACK arrêtée');
     }
   }
@@ -359,6 +375,7 @@ export class JACKBackend extends EventEmitter {
    * Arrête tous les streams
    */
   destroy() {
+    this.shuttingDown = true;
     this.stopCapture();
     this.stopPlayback();
     this.removeAllListeners();

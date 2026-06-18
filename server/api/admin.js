@@ -4,9 +4,6 @@
  */
 
 import { Router } from 'express';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import YAML from 'yaml';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { CoreAudioBackend } from '../bridge/backends/CoreAudioBackend.js';
@@ -40,47 +37,6 @@ const stats = {
   audioStats: [],
   logs: []
 };
-
-// Configuration file path
-const configPath = join(__dirname, '..', 'config', 'config.yaml');
-
-/**
- * Charge la configuration depuis le fichier YAML
- * et génère les IDs à partir des noms
- */
-function loadConfig() {
-  const configFile = readFileSync(configPath, 'utf8');
-  const config = YAML.parse(configFile);
-
-  // Générer les IDs pour les groupes
-  config.groups = config.groups.map(group => {
-    const groupId = slugify(group.name);
-    return {
-      ...group,
-      id: groupId
-    };
-  });
-
-  return config;
-}
-
-/**
- * Sauvegarde la configuration dans le fichier YAML
- * Ne sauvegarde PAS les IDs (ils sont générés dynamiquement)
- */
-function saveConfig(config) {
-  // Nettoyer les IDs avant de sauvegarder
-  const cleanConfig = {
-    ...config,
-    groups: config.groups.map(group => {
-      const { id, ...groupWithoutId } = group;
-      return groupWithoutId;
-    })
-  };
-
-  const yamlContent = YAML.stringify(cleanConfig);
-  writeFileSync(configPath, yamlContent, 'utf8');
-}
 
 /**
  * Ajoute un log au système
@@ -166,7 +122,7 @@ export function addAudioStats(data) {
  */
 router.get('/groups', (req, res) => {
   try {
-    const config = loadConfig();
+    const config = configManager.get();
     res.json({
       groups: config.groups
     });
@@ -192,7 +148,7 @@ router.post('/groups', (req, res) => {
       });
     }
 
-    const config = loadConfig();
+    const config = configManager.get();
 
     // Générer l'ID à partir du nom
     const id = slugify(name);
@@ -211,7 +167,7 @@ router.post('/groups', (req, res) => {
     };
 
     config.groups.push(newGroup);
-    saveConfig(config);
+    configManager.save(config);
 
     addLog('info', `Group created: ${name}`, { id });
 
@@ -237,7 +193,7 @@ router.put('/groups/:id', (req, res) => {
     const { id } = req.params;
     const { name, audioBitrate } = req.body;
 
-    const config = loadConfig();
+    const config = configManager.get();
 
     // Chercher le groupe par son nom (qui correspond à l'ID slugifié)
     const groupIndex = config.groups.findIndex(g => slugify(g.name) === id);
@@ -252,12 +208,12 @@ router.put('/groups/:id', (req, res) => {
     if (name !== undefined) config.groups[groupIndex].name = name;
     if (audioBitrate !== undefined) config.groups[groupIndex].audioBitrate = audioBitrate;
 
-    saveConfig(config);
+    configManager.save(config);
 
     addLog('info', `Group updated: ${config.groups[groupIndex].name}`, { id });
 
-    // Recharger pour obtenir les IDs générés
-    const updatedConfig = loadConfig();
+    // Récupérer la config à jour avec les IDs générés
+    const updatedConfig = configManager.get();
     const updatedGroupIndex = updatedConfig.groups.findIndex(g => slugify(g.name) === id || slugify(g.name) === slugify(name));
     const updatedGroup = updatedGroupIndex !== -1 ? updatedConfig.groups[updatedGroupIndex] : null;
 
@@ -281,7 +237,7 @@ router.delete('/groups/:id', (req, res) => {
   try {
     const { id } = req.params;
 
-    const config = loadConfig();
+    const config = configManager.get();
     const groupIndex = config.groups.findIndex(g => slugify(g.name) === id);
 
     if (groupIndex === -1) {
@@ -292,7 +248,7 @@ router.delete('/groups/:id', (req, res) => {
 
     const groupName = config.groups[groupIndex].name;
     config.groups.splice(groupIndex, 1);
-    saveConfig(config);
+    configManager.save(config);
 
     addLog('info', `Group deleted: ${groupName}`, { id });
 
@@ -412,7 +368,7 @@ router.get('/logs', (req, res) => {
  */
 router.get('/config', (req, res) => {
   try {
-    const config = loadConfig();
+    const config = configManager.get();
     res.json(config);
   } catch (error) {
     console.error('Erreur GET /admin/config:', error);
@@ -429,13 +385,13 @@ router.put('/config/audio', (req, res) => {
   try {
     const { sampleRate, defaultBitrate, jitterBufferMs } = req.body;
 
-    const config = loadConfig();
+    const config = configManager.get();
 
     if (sampleRate !== undefined) config.audio.sampleRate = sampleRate;
     if (defaultBitrate !== undefined) config.audio.defaultBitrate = defaultBitrate;
     if (jitterBufferMs !== undefined) config.audio.jitterBufferMs = jitterBufferMs;
 
-    saveConfig(config);
+    configManager.save(config);
 
     addLog('info', 'Audio config updated', { sampleRate, defaultBitrate, jitterBufferMs });
 

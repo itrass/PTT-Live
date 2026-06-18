@@ -32,6 +32,11 @@ export class CoreAudioBackend extends EventEmitter {
     this.playbackProcess = null;
     this.isCapturing = false;
     this.isPlaying = false;
+    this.shuttingDown = false;
+
+    // Buffer d'accumulation pour la capture (sox envoie des chunks de taille variable)
+    this.captureAccumulator = Buffer.alloc(0);
+    this.targetCaptureBytes = this.options.framesPerBuffer * 2 * this.options.channels; // 2 bytes per sample
 
     // Buffer circulaire pour la lecture
     this.playbackBuffer = [];
@@ -184,35 +189,45 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      // Commande sox pour capturer audio
-      // rec : enregistrer depuis input par défaut
-      // -t raw : format raw PCM
-      // -b 16 : 16-bit
-      // -e signed-integer : signed PCM
-      // -c 1 : mono (ou nombre de canaux)
-      // -r 48000 : sample rate
-      // - : sortie vers stdout
-      const args = [
-        '-t', 'coreaudio',  // Driver CoreAudio
-        'default',          // Device par défaut (ou spécifier nom)
-        '-t', 'raw',
-        '-b', '16',
-        '-e', 'signed-integer',
-        `-c`, String(this.options.channels),
-        `-r`, String(this.options.sampleRate),
-        '-'  // Stdout
-      ];
+      // Commande sox pour capturer audio sur macOS
+      // Sur macOS, sox utilise CoreAudio par défaut via 'rec' (alias de sox -d)
+      // Format: sox -d [options] output
+      // -d = default input device OU -t coreaudio "Device Name"
 
-      // Si device spécifié
+      const args = [];
+
+      // Spécifier le device d'entrée (CoreAudio capture en 32-bit natif)
       if (this.options.inputDeviceName) {
-        args[2] = this.options.inputDeviceName;  // Index 2 = device name
+        args.push('-t', 'coreaudio', this.options.inputDeviceName);
+      } else {
+        args.push('-d');
       }
 
+      // Format de sortie (stdout) - convertir 32→16 bit
+      args.push(
+        '-t', 'raw',      // Format sortie raw PCM
+        '-b', '16',       // Convertir vers 16-bit
+        '-e', 'signed-integer',
+        '-c', String(this.options.channels),
+        '-r', String(this.options.sampleRate),
+        '-'  // Stdout
+      );
+
+      console.log(`🎤 Démarrage capture sox: ${args.join(' ')}`);
       this.captureProcess = spawn('sox', args);
 
       this.captureProcess.stdout.on('data', (audioData) => {
-        // Émet les données audio capturées (Buffer PCM 16-bit)
-        this.emit('audioData', audioData);
+        // Accumuler les données jusqu'à avoir un frame complet
+        this.captureAccumulator = Buffer.concat([this.captureAccumulator, audioData]);
+
+        // Émettre des frames de taille fixe
+        while (this.captureAccumulator.length >= this.targetCaptureBytes) {
+          const frame = this.captureAccumulator.subarray(0, this.targetCaptureBytes);
+          this.emit('audioData', Buffer.from(frame)); // Copier pour éviter les références
+
+          // Garder le reste pour la prochaine frame
+          this.captureAccumulator = this.captureAccumulator.subarray(this.targetCaptureBytes);
+        }
       });
 
       this.captureProcess.stderr.on('data', (data) => {
@@ -248,6 +263,7 @@ export class CoreAudioBackend extends EventEmitter {
       this.captureProcess.kill('SIGTERM');
       this.captureProcess = null;
       this.isCapturing = false;
+      this.captureAccumulator = Buffer.alloc(0); // Reset accumulator
       console.log('✓ Capture audio arrêtée');
     }
   }
@@ -265,27 +281,31 @@ export class CoreAudioBackend extends EventEmitter {
     }
 
     try {
-      // Commande sox pour lecture audio
-      // play : lire vers output par défaut
-      // -t raw : format raw PCM depuis stdin
-      // --buffer : taille du buffer interne sox (en bytes)
+      // Commande sox pour lecture audio sur macOS
+      // Format: sox [options] input output
+      // Input = stdin (-)
+      // Output = -d (default) OU -t coreaudio "Device Name"
+
       const args = [
-        '--buffer', '8192',  // Buffer interne sox
+        '--buffer', '65536',  // Buffer 64k (évite EOF prématuré)
         '-t', 'raw',
         '-b', '16',
         '-e', 'signed-integer',
-        `-c`, String(this.options.channels),
-        `-r`, String(this.options.sampleRate),
-        '-',  // Stdin
-        '-t', 'coreaudio',
-        'default'  // Device par défaut
+        '-c', String(this.options.channels),
+        '-r', String(this.options.sampleRate),
+        '-'  // Input = stdin
       ];
 
-      // Si device spécifié
+      // Spécifier le device de sortie
       if (this.options.outputDeviceName) {
-        args[args.length - 1] = this.options.outputDeviceName;
+        // Utiliser le device spécifié par son nom
+        args.push('-t', 'coreaudio', this.options.outputDeviceName);
+      } else {
+        // Device par défaut
+        args.push('-d');
       }
 
+      console.log(`🔊 Démarrage playback sox: ${args.join(' ')}`);
       this.playbackProcess = spawn('sox', args, {
         stdio: ['pipe', 'ignore', 'pipe']  // stdin=pipe, stdout=ignore, stderr=pipe
       });
@@ -313,13 +333,20 @@ export class CoreAudioBackend extends EventEmitter {
       });
 
       this.playbackProcess.on('close', (code) => {
-        console.log(`⚠️  Sox playback fermé (code ${code}) après ${((Date.now() - this.playbackStartTime) / 1000).toFixed(1)}s`);
+        const uptime = ((Date.now() - this.playbackStartTime) / 1000).toFixed(1);
+        console.log(`⚠️  Sox playback fermé (code ${code}) après ${uptime}s`);
         this.isPlaying = false;
 
-        // Tenter de redémarrer si c'était inattendu
-        if (code !== 0) {
-          console.log('🔄 Tentative de redémarrage du playback...');
-          setTimeout(() => this.startPlayback(), 1000);
+        // Redémarrer automatiquement (sox se ferme quand le buffer stdin se vide)
+        if (!this.shuttingDown) {
+          console.log('🔄 Redémarrage automatique du playback...');
+          setTimeout(() => {
+            if (!this.shuttingDown) {
+              this.startPlayback().catch(err => {
+                console.error('Erreur redémarrage playback:', err);
+              });
+            }
+          }, 100);
         }
       });
 
@@ -438,6 +465,7 @@ export class CoreAudioBackend extends EventEmitter {
    * Arrête tous les streams
    */
   destroy() {
+    this.shuttingDown = true;
     this.stopCapture();
     this.stopPlayback();
     this.removeAllListeners();

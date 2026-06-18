@@ -264,11 +264,18 @@ export class LiveKitClient extends EventEmitter {
     }
 
     try {
-      // Création d'un AudioFrame (conversion en int32 explicite)
-      const samplesPerChannel = Math.floor(pcmData.length / 2 / this.options.channels);
+      // AudioFrame attend Int16Array, pas Buffer
+      // Convertir Buffer → Int16Array (éviter .slice, utiliser .subarray selon doc)
+      const int16Array = new Int16Array(
+        pcmData.buffer,
+        pcmData.byteOffset,
+        pcmData.length / 2  // length en samples, pas en bytes
+      );
+
+      const samplesPerChannel = Math.floor(int16Array.length / this.options.channels);
 
       const frame = new AudioFrame(
-        pcmData,
+        int16Array,
         parseInt(this.options.sampleRate, 10),
         parseInt(this.options.channels, 10),
         samplesPerChannel
@@ -349,7 +356,14 @@ export class LiveKitClient extends EventEmitter {
     if (this.room) {
       // Unpublish track
       if (this.localAudioTrack) {
-        await this.room.localParticipant.unpublishTrack(this.localAudioTrack.sid);
+        try {
+          await this.room.localParticipant.unpublishTrack(this.localAudioTrack.sid);
+        } catch (error) {
+          // Ignorer l'erreur si le track n'existe plus (shutdown rapide)
+          if (!error.message?.includes('track not found')) {
+            console.warn('⚠️  Erreur unpublish track:', error.message);
+          }
+        }
         this.localAudioTrack = null;
       }
 
