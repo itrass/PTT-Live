@@ -272,36 +272,36 @@ async function pingServer() {
   });
 }
 
-// ========== IPC Handlers ==========
-
-ipcMain.handle('server:start', async () => {
-  return await startServer();
-});
-
-ipcMain.handle('server:stop', async () => {
-  return await stopServer();
-});
-
-ipcMain.handle('server:status', async () => {
-  if (!serverStarted) {
-    return { running: false };
-  }
-
-  const health = await pingServer();
-  return {
-    running: health.success,
-    health: health.data,
-    url: SERVER_URL
-  };
-});
-
-ipcMain.handle('server:ping', async () => {
-  return await pingServer();
-});
-
 // ========== App Lifecycle ==========
 
 app.whenReady().then(async () => {
+  // Setup IPC Handlers (doit être après app.whenReady)
+  ipcMain.handle('server:start', async () => {
+    return await startServer();
+  });
+
+  ipcMain.handle('server:stop', async () => {
+    return await stopServer();
+  });
+
+  ipcMain.handle('server:status', async () => {
+    if (!serverStarted) {
+      return { running: false };
+    }
+
+    const health = await pingServer();
+    return {
+      running: health.success,
+      health: health.data,
+      url: SERVER_URL
+    };
+  });
+
+  ipcMain.handle('server:ping', async () => {
+    return await pingServer();
+  });
+
+  // Créer fenêtre
   createWindow();
   createTray();
 
