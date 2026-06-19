@@ -33,12 +33,17 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 **Un seul script pour tout installer** (détection automatique macOS/Linux) :
 
 ```bash
-# Lancer l'installation portable
+# 1. Installer dépendances + LiveKit
 ./install.sh
 
-# Démarrer le système (mode CLI)
+# 2. Configurer certificats SSL locaux (NOUVEAU - requis pour HTTPS)
+./setup-certificates.sh
+
+# 3. Démarrer le système (mode CLI)
 ./start.sh --dev
 ```
+
+🔐 **Certificats SSL** : Le script `setup-certificates.sh` génère des certificats **automatiquement approuvés** (pas de warnings navigateur). Voir [SSL-SETUP.md](SSL-SETUP.md)
 
 ✨ **L'installeur configure automatiquement** :
 - LiveKit Server local (pas besoin de compte cloud)

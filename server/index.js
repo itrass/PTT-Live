@@ -437,11 +437,19 @@ async function start() {
     let server;
 
     if (ENABLE_HTTPS) {
-      // Charger certificats SSL (mêmes que Vite)
-      const certPath = join(__dirname, '..', 'client');
+      // Charger certificats SSL depuis .env ou fallback
+      const certPath = process.env.SSL_CERT || join(__dirname, '..', 'certs', 'localhost.pem');
+      const keyPath = process.env.SSL_KEY || join(__dirname, '..', 'certs', 'localhost-key.pem');
+
+      if (!existsSync(certPath) || !existsSync(keyPath)) {
+        log('error', '❌ Certificats SSL introuvables');
+        log('info', '💡 Exécutez : ./setup-certificates.sh');
+        process.exit(1);
+      }
+
       const httpsOptions = {
-        key: readFileSync(join(certPath, 'localhost+3-key.pem')),
-        cert: readFileSync(join(certPath, 'localhost+3.pem'))
+        key: readFileSync(keyPath),
+        cert: readFileSync(certPath)
       };
 
       server = https.createServer(httpsOptions, app);
