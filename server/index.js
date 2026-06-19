@@ -16,6 +16,7 @@ import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
 import AudioLevelsServer from './websocket/AudioLevelsServer.js';
 import { setGlobalLogLevel } from './utils/Logger.js';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -378,6 +379,25 @@ apiRouter.get('/health', (req, res) => {
   });
 });
 
+// Proxy WebSocket pour LiveKit (wss → ws)
+// Permet au client HTTPS de se connecter à LiveKit via le serveur Express
+const livekitProxy = createProxyMiddleware({
+  target: 'http://localhost:7880',
+  changeOrigin: true,
+  ws: true, // Enable WebSocket proxying
+  pathRewrite: {
+    '^/livekit': '' // Remove /livekit prefix
+  },
+  onProxyReqWs: (proxyReq, req, socket) => {
+    log('debug', `🔀 Proxy WebSocket: ${req.url} → ws://localhost:7880`);
+  },
+  onError: (err, req, res) => {
+    log('error', `❌ Erreur proxy LiveKit: ${err.message}`);
+  }
+});
+
+app.use('/livekit', livekitProxy);
+
 // Monter le router API sous /api ET à la racine (rétrocompatibilité)
 app.use('/api', apiRouter);
 app.use(apiRouter); // Routes accessibles aussi sans préfixe /api
@@ -492,7 +512,14 @@ async function start() {
       });
     }
 
-    // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
+    // 2.5 Activer upgrade WebSocket pour proxy LiveKit
+    server.on('upgrade', (req, socket, head) => {
+      if (req.url.startsWith('/livekit')) {
+        livekitProxy.upgrade(req, socket, head);
+      }
+    });
+
+    // 2.6 Démarrer WebSocket Audio Levels (même port que l'API)
     const audioLevelsServer = new AudioLevelsServer({ server });
     audioLevelsServer.start();
     const wsProtocol = ENABLE_HTTPS ? 'wss' : 'ws';
