@@ -184,20 +184,30 @@ async function startServer() {
       createTray(); // Mettre à jour tray
     });
 
-    // Timeout de sécurité (10s)
+    // Timeout de sécurité (15s)
     setTimeout(() => {
       if (!serverStarted && serverProcess) {
-        console.log('⏱️  Timeout démarrage serveur, on assume que c\'est OK');
-        serverStarted = true;
+        console.log('⏱️  Timeout démarrage serveur (15s), vérification health...');
 
-        if (mainWindow) {
-          mainWindow.webContents.send('server:status', { running: true });
-        }
+        // Vérifier que le serveur répond vraiment
+        pingServer().then((health) => {
+          if (health.success) {
+            serverStarted = true;
+            console.log('✅ Serveur répond au health check');
 
-        createTray();
-        resolve({ success: true, url: SERVER_URL });
+            if (mainWindow) {
+              mainWindow.webContents.send('server:status', { running: true });
+            }
+
+            createTray();
+            resolve({ success: true, url: SERVER_URL });
+          } else {
+            console.error('❌ Serveur ne répond pas après 15s');
+            reject(new Error('Server startup timeout'));
+          }
+        });
       }
-    }, 10000);
+    }, 15000);
   });
 }
 
