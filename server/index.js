@@ -513,9 +513,18 @@ async function start() {
     }
 
     // 2.5 Activer upgrade WebSocket pour proxy LiveKit
+    // Important : gérer AVANT AudioLevelsServer
     server.on('upgrade', (req, socket, head) => {
+      log('debug', `📡 WebSocket upgrade request: ${req.url}`);
+
       if (req.url.startsWith('/livekit')) {
+        log('debug', '🔀 Proxying to LiveKit...');
         livekitProxy.upgrade(req, socket, head);
+      } else if (req.url.startsWith('/audio-levels')) {
+        log('debug', '📊 Audio levels WebSocket - handled by AudioLevelsServer');
+        // AudioLevelsServer will handle this
+      } else {
+        log('warn', `⚠️  Unknown WebSocket path: ${req.url}`);
       }
     });
 
