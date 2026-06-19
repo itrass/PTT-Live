@@ -398,6 +398,14 @@ livekitProxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
   log('debug', `🔀 Proxy WebSocket: ${req.url} → ws://localhost:7880`);
 });
 
+// Proxy HTTP pour LiveKit (requêtes REST comme /rtc/validate)
+app.use('/livekit', (req, res) => {
+  log('debug', `🔀 Proxy HTTP: ${req.originalUrl} → http://localhost:7880${req.url}`);
+  livekitProxy.web(req, res, {
+    target: 'http://localhost:7880'
+  });
+});
+
 // Monter le router API sous /api ET à la racine (rétrocompatibilité)
 app.use('/api', apiRouter);
 app.use(apiRouter); // Routes accessibles aussi sans préfixe /api
