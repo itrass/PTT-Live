@@ -8,6 +8,26 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 
 ## 🚀 Démarrage rapide
 
+### 🖥️ Application Desktop (Nouveau !)
+
+**Interface graphique complète pour gérer le serveur** :
+
+```bash
+# Lancer l'application desktop
+./start-desktop.sh
+```
+
+✨ **Fonctionnalités** :
+- Dashboard temps réel (stats, utilisateurs)
+- Configuration audio (devices, bitrate)
+- Gestion groupes (CRUD)
+- QR Code pour connexion clients
+- Logs serveur filtrables
+
+📖 **Documentation complète** : [DESKTOP-APP.md](DESKTOP-APP.md)
+
+---
+
 ### Installation Automatique (Recommandé)
 
 **Un seul script pour tout installer** (détection automatique macOS/Linux) :
@@ -16,7 +36,7 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 # Lancer l'installation portable
 ./install.sh
 
-# Démarrer le système
+# Démarrer le système (mode CLI)
 ./start.sh --dev
 ```
 

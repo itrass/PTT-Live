@@ -208,6 +208,11 @@ PTT Live/
 ./install.sh  # Détecte OS, configure tout automatiquement
 
 # Démarrage rapide
+
+# Option 1 : Application Desktop (Interface graphique)
+./start-desktop.sh  # Lance l'app Electron avec dashboard
+
+# Option 2 : Mode CLI (deux terminaux)
 ./start.sh --dev  # Mode développement
 ./start.sh        # Mode production
 
@@ -222,6 +227,44 @@ cd client
 npm install
 npm run dev
 ```
+
+## Application Desktop (v0.3.0)
+
+### Interface Electron
+- **Main Process** : spawn serveur Node.js, IPC handlers
+- **Renderer Process** : dashboard HTML/CSS/JS
+- **Communication** : IPC sécurisé (contextBridge) + HTTP vers API admin
+
+### Fonctionnalités
+- ✅ **Dashboard** : stats temps réel, utilisateurs, QR Code
+- ✅ **Configuration** : devices audio, sample rate, bitrate, jitter
+- ✅ **Groupes** : CRUD complet via API admin
+- ✅ **Monitoring** : logs filtrables (error/warn/info/debug)
+- ✅ **Notifications** : toast visuelles avec auto-dismiss
+- 🚧 **VU-mètres** : WebSocket audio levels (prévu)
+
+### Structure
+```
+electron/
+├── main.js              # Main Process (spawn serveur)
+├── preload.js           # IPC bridge sécurisé
+├── package.json         # Config Electron + electron-builder
+└── ui/
+    ├── index.html       # Interface dashboard
+    ├── styles.css       # Dark theme
+    └── app.js           # Logic + API calls
+```
+
+### Build & Distribution
+```bash
+cd electron
+npm run build:mac    # → dist/PTT Live Server.dmg
+npm run build:linux  # → dist/PTT Live Server.AppImage
+```
+
+Voir [DESKTOP-APP.md](DESKTOP-APP.md) pour la doc complète.
+
+---
 
 ## Fonctionnalités de portabilité (v0.2.1)
 

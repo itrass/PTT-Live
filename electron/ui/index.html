@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTT Live Server</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1>🎙️ PTT Live Server</h1>
+        <span class="version" id="version">v0.3.0</span>
+      </div>
+      <div class="header-right">
+        <div class="server-status">
+          <span class="status-indicator" id="status-indicator">⚪</span>
+          <span id="status-text">Arrêté</span>
+        </div>
+        <button id="btn-start" class="btn btn-primary">Démarrer</button>
+        <button id="btn-stop" class="btn btn-secondary" disabled>Arrêter</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar">
+        <button class="nav-item active" data-view="dashboard">
+          📊 Dashboard
+        </button>
+        <button class="nav-item" data-view="config">
+          ⚙️ Configuration
+        </button>
+        <button class="nav-item" data-view="groups">
+          👥 Groupes
+        </button>
+        <button class="nav-item" data-view="monitoring">
+          📈 Monitoring
+        </button>
+        <button class="nav-item" data-view="logs">
+          📝 Logs
+        </button>
+      </nav>
+
+      <!-- Content Area -->
+      <div class="content">
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="view active">
+          <h2>Dashboard</h2>
+
+          <!-- Stats Cards -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Uptime</div>
+              <div class="stat-value" id="stat-uptime">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Utilisateurs</div>
+              <div class="stat-value" id="stat-users">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Groupes actifs</div>
+              <div class="stat-value" id="stat-groups">--</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Connexions totales</div>
+              <div class="stat-value" id="stat-total-connections">--</div>
+            </div>
+          </div>
+
+          <!-- QR Code Section -->
+          <div class="section">
+            <h3>📱 Connexion rapide clients</h3>
+            <div class="qr-container">
+              <canvas id="qr-code" width="256" height="256"></canvas>
+              <div class="qr-info">
+                <p><strong>URL clients :</strong></p>
+                <p class="url-text" id="client-url">--</p>
+                <button class="btn btn-small" id="btn-copy-url">Copier l'URL</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Users -->
+          <div class="section">
+            <h3>👤 Utilisateurs connectés</h3>
+            <div id="users-list" class="users-list">
+              <p class="empty-state">Aucun utilisateur connecté</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration View -->
+        <div id="view-config" class="view">
+          <h2>Configuration Audio</h2>
+
+          <div class="section">
+            <h3>🔌 Périphériques Audio</h3>
+            <div class="form-group">
+              <label>Device Input</label>
+              <select id="input-device" class="form-control">
+                <option>Chargement...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Device Output</label>
+              <select id="output-device" class="form-control">
+                <option>Chargement...</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" id="btn-save-device">Appliquer</button>
+          </div>
+
+          <div class="section">
+            <h3>🎚️ Paramètres Audio</h3>
+            <div class="form-group">
+              <label>Sample Rate</label>
+              <select id="sample-rate" class="form-control">
+                <option value="44100">44.1 kHz</option>
+                <option value="48000" selected>48 kHz</option>
+                <option value="96000">96 kHz</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Bitrate par défaut (kbps)</label>
+              <input type="number" id="default-bitrate" class="form-control" value="96" min="32" max="320" step="32">
+            </div>
+            <div class="form-group">
+              <label>Jitter Buffer (ms)</label>
+              <input type="number" id="jitter-buffer" class="form-control" value="40" min="20" max="100" step="10">
+            </div>
+            <button class="btn btn-primary" id="btn-save-audio">Sauvegarder</button>
+          </div>
+        </div>
+
+        <!-- Groups View -->
+        <div id="view-groups" class="view">
+          <h2>Gestion des Groupes</h2>
+          <button class="btn btn-primary" id="btn-add-group">➕ Nouveau groupe</button>
+          <div id="groups-list" class="groups-list">
+            <p class="empty-state">Chargement des groupes...</p>
+          </div>
+        </div>
+
+        <!-- Monitoring View -->
+        <div id="view-monitoring" class="view">
+          <h2>Monitoring Audio</h2>
+          <div class="section">
+            <h3>🔊 VU-Mètres</h3>
+            <div id="vu-meters" class="vu-meters">
+              <p class="empty-state">En attente de données audio...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs View -->
+        <div id="view-logs" class="view">
+          <h2>Logs Serveur</h2>
+          <div class="logs-controls">
+            <button class="btn btn-small" id="btn-clear-logs">Effacer</button>
+            <select id="log-level-filter" class="form-control form-control-small">
+              <option value="">Tous les niveaux</option>
+              <option value="error">Erreurs</option>
+              <option value="warn">Warnings</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+            </select>
+          </div>
+          <div id="logs-container" class="logs-container">
+            <p class="empty-state">Aucun log</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- QR Code Library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
