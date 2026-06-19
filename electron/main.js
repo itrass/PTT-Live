@@ -141,8 +141,8 @@ async function startServer() {
       const output = data.toString();
       console.log('[Serveur]', output);
 
-      // Transmettre les logs au renderer
-      if (mainWindow) {
+      // Transmettre les logs au renderer (seulement si prêt)
+      if (mainWindow && rendererReady) {
         mainWindow.webContents.send('server:log', {
           level: 'info',
           message: output.trim()
@@ -154,7 +154,7 @@ async function startServer() {
         serverStarted = true;
         console.log('✅ Serveur démarré avec succès');
 
-        if (mainWindow) {
+        if (mainWindow && rendererReady) {
           mainWindow.webContents.send('server:status', { running: true });
         }
 
