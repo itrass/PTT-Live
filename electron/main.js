@@ -3,10 +3,11 @@
  * Intègre le serveur Node.js existant dans une application Electron
  */
 
-const { app, BrowserWindow, ipcMain, Menu, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const setupHelper = require('./setup-helper');
 
 // État de l'application
 let mainWindow = null;
@@ -304,6 +305,61 @@ app.whenReady().then(async () => {
   // Créer fenêtre
   createWindow();
   createTray();
+
+  // Vérifier setup automatique (certificats)
+  console.log('🔍 Vérification configuration...');
+  const projectRoot = path.join(__dirname, '..');
+  const certsDir = path.join(projectRoot, 'certs');
+
+  if (!setupHelper.certificatesExist(certsDir)) {
+    console.log('⚠️  Certificats SSL manquants, configuration automatique...\n');
+
+    // Afficher dialog d'information
+    const infoResult = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Configuration initiale',
+      message: 'Première utilisation de PTT Live',
+      detail: 'Configuration des certificats SSL en cours...\nCela peut prendre 1-2 minutes.\n\nmkcert sera installé automatiquement.',
+      buttons: ['Continuer', 'Annuler']
+    });
+
+    if (infoResult.response === 1) {
+      console.log('⚠️  Configuration annulée par l\'utilisateur');
+      return;
+    }
+
+    // Lancer setup auto
+    const setupResult = await setupHelper.autoSetup(projectRoot);
+
+    if (!setupResult.success) {
+      // Échec du setup automatique
+      await dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Configuration échouée',
+        message: 'Impossible de configurer automatiquement les certificats SSL',
+        detail: setupResult.manual
+          ? 'Veuillez exécuter manuellement :\n./setup-certificates.sh\n\nOu installer mkcert : https://github.com/FiloSottile/mkcert'
+          : setupResult.error,
+        buttons: ['OK']
+      });
+
+      console.error('❌ Setup automatique échoué');
+      return; // Ne pas démarrer le serveur
+    }
+
+    // Setup réussi
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Configuration terminée',
+      message: 'Certificats SSL configurés avec succès !',
+      detail: `Votre IP réseau : ${setupResult.networkIP}\n\nLe serveur va démarrer...`,
+      buttons: ['OK']
+    });
+
+    console.log('✅ Setup automatique terminé\n');
+  } else {
+    console.log('✅ Certificats présents\n');
+  }
 
   // Démarrer le serveur automatiquement
   console.log('🔄 Démarrage automatique du serveur...');
