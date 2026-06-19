@@ -16,7 +16,7 @@ import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
 import AudioLevelsServer from './websocket/AudioLevelsServer.js';
 import { setGlobalLogLevel } from './utils/Logger.js';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import httpProxy from 'http-proxy';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -379,24 +379,24 @@ apiRouter.get('/health', (req, res) => {
   });
 });
 
-// Proxy WebSocket pour LiveKit (wss → ws)
-// Permet au client HTTPS de se connecter à LiveKit via le serveur Express
-const livekitProxy = createProxyMiddleware({
+// Créer proxy WebSocket natif pour LiveKit (wss → ws)
+const livekitProxy = httpProxy.createProxyServer({
   target: 'http://localhost:7880',
-  changeOrigin: true,
-  ws: true, // Enable WebSocket proxying
-  pathRewrite: {
-    '^/livekit': '' // Remove /livekit prefix
-  },
-  onProxyReqWs: (proxyReq, req, socket) => {
-    log('debug', `🔀 Proxy WebSocket: ${req.url} → ws://localhost:7880`);
-  },
-  onError: (err, req, res) => {
-    log('error', `❌ Erreur proxy LiveKit: ${err.message}`);
+  ws: true,
+  changeOrigin: true
+});
+
+livekitProxy.on('error', (err, req, res) => {
+  log('error', `❌ Erreur proxy LiveKit: ${err.message}`);
+  if (res && res.writeHead) {
+    res.writeHead(502, { 'Content-Type': 'text/plain' });
+    res.end('Proxy error');
   }
 });
 
-app.use('/livekit', livekitProxy);
+livekitProxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+  log('debug', `🔀 Proxy WebSocket: ${req.url} → ws://localhost:7880`);
+});
 
 // Monter le router API sous /api ET à la racine (rétrocompatibilité)
 app.use('/api', apiRouter);
@@ -515,16 +515,19 @@ async function start() {
     // 2.5 Activer upgrade WebSocket pour proxy LiveKit
     // Important : gérer AVANT AudioLevelsServer
     server.on('upgrade', (req, socket, head) => {
-      log('debug', `📡 WebSocket upgrade request: ${req.url}`);
+      log('info', `📡 WebSocket upgrade: ${req.url}`);
 
       if (req.url.startsWith('/livekit')) {
-        log('debug', '🔀 Proxying to LiveKit...');
-        livekitProxy.upgrade(req, socket, head);
+        log('info', '🔀 Proxying to LiveKit on ws://localhost:7880');
+        // Réécrire l'URL pour enlever /livekit
+        req.url = req.url.replace(/^\/livekit/, '');
+        livekitProxy.ws(req, socket, head);
       } else if (req.url.startsWith('/audio-levels')) {
         log('debug', '📊 Audio levels WebSocket - handled by AudioLevelsServer');
         // AudioLevelsServer will handle this
       } else {
         log('warn', `⚠️  Unknown WebSocket path: ${req.url}`);
+        socket.destroy();
       }
     });
 
