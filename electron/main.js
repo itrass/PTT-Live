@@ -152,13 +152,33 @@ async function startServer() {
 
     serverProcess.stderr.on('data', (data) => {
       const output = data.toString();
-      console.error('[Serveur Error]', output);
+
+      // LiveKit envoie INFO/WARN dans stderr (comportement normal Go)
+      // Ne les traiter comme erreurs que s'ils contiennent vraiment "ERROR"
+      const isError = output.includes('ERROR') || output.includes('Error:');
+
+      console.log(isError ? '[Serveur Error]' : '[Serveur]', output);
 
       if (mainWindow) {
         mainWindow.webContents.send('server:log', {
-          level: 'error',
+          level: isError ? 'error' : 'info',
           message: output.trim()
         });
+      }
+
+      // Détecter démarrage LiveKit dans stderr
+      if (output.includes('starting LiveKit server') || output.includes('Serveur prêt')) {
+        if (!serverStarted) {
+          serverStarted = true;
+          console.log('✅ Serveur démarré (détecté via stderr)');
+
+          if (mainWindow) {
+            mainWindow.webContents.send('server:status', { running: true });
+          }
+
+          createTray();
+          resolve({ success: true, url: SERVER_URL });
+        }
       }
     });
 
@@ -361,9 +381,10 @@ app.whenReady().then(async () => {
     console.log('✅ Certificats présents\n');
   }
 
-  // Démarrer le serveur automatiquement
-  console.log('🔄 Démarrage automatique du serveur...');
-  await startServer();
+  // NE PAS démarrer automatiquement
+  // L'utilisateur cliquera sur "Démarrer" dans l'interface
+  console.log('✅ Application prête');
+  console.log('💡 Cliquez sur "Démarrer" pour lancer le serveur\n');
 });
 
 app.on('window-all-closed', () => {

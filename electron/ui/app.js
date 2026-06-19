@@ -26,8 +26,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Vérifier le statut initial du serveur
   await checkServerStatus();
 
-  // Charger les données initiales
-  loadInitialData();
+  // Charger les données initiales SEULEMENT si serveur actif
+  if (serverRunning) {
+    loadInitialData();
+  } else {
+    console.log('⏸️  Serveur arrêté, en attente de démarrage...');
+  }
 });
 
 // ========== Navigation ==========
@@ -159,11 +163,20 @@ function updateServerStatus(running) {
     statusText.textContent = 'Actif';
     btnStart.disabled = true;
     btnStop.disabled = false;
+
+    // Démarrer le polling
+    startStatsPolling();
+
+    // Charger les données initiales
+    loadInitialData();
   } else {
     indicator.textContent = '⚪';
     statusText.textContent = 'Arrêté';
     btnStart.disabled = false;
     btnStop.disabled = true;
+
+    // Arrêter le polling
+    stopStatsPolling();
   }
 }
 
