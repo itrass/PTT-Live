@@ -14,6 +14,7 @@ let mainWindow = null;
 let tray = null;
 let serverProcess = null;
 let serverStarted = false;
+let rendererReady = false;
 
 const SERVER_PORT = process.env.PORT || 3000;
 const SERVER_URL = `http://localhost:${SERVER_PORT}`;
@@ -40,6 +41,17 @@ function createWindow() {
   // Charger l'interface dashboard
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
 
+  // Attendre que le renderer soit prêt
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererReady = true;
+    console.log('✅ Interface chargée');
+
+    // Envoyer l'état initial du serveur
+    if (mainWindow) {
+      mainWindow.webContents.send('server:status', { running: serverStarted });
+    }
+  });
+
   // DevTools en mode dev
   if (isDev) {
     mainWindow.webContents.openDevTools();
@@ -48,6 +60,7 @@ function createWindow() {
   // Cleanup à la fermeture
   mainWindow.on('closed', () => {
     mainWindow = null;
+    rendererReady = false;
   });
 }
 
@@ -159,7 +172,7 @@ async function startServer() {
 
       console.log(isError ? '[Serveur Error]' : '[Serveur]', output);
 
-      if (mainWindow) {
+      if (mainWindow && rendererReady) {
         mainWindow.webContents.send('server:log', {
           level: isError ? 'error' : 'info',
           message: output.trim()
@@ -172,7 +185,7 @@ async function startServer() {
           serverStarted = true;
           console.log('✅ Serveur démarré (détecté via stderr)');
 
-          if (mainWindow) {
+          if (mainWindow && rendererReady) {
             mainWindow.webContents.send('server:status', { running: true });
           }
 
@@ -186,7 +199,7 @@ async function startServer() {
       console.error('❌ Erreur démarrage serveur:', error);
       serverStarted = false;
 
-      if (mainWindow) {
+      if (mainWindow && rendererReady) {
         mainWindow.webContents.send('server:status', { running: false, error: error.message });
       }
 
@@ -198,7 +211,7 @@ async function startServer() {
       serverProcess = null;
       serverStarted = false;
 
-      if (mainWindow) {
+      if (mainWindow && rendererReady) {
         mainWindow.webContents.send('server:status', { running: false });
       }
 
