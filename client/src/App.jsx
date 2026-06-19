@@ -100,17 +100,17 @@ function App() {
 
       const data = await response.json();
 
-      // En mode dev (HTTPS via Vite), utiliser le proxy WebSocket
-      // En mode prod (HTTP direct), utiliser l'URL LiveKit directement
+      // Si HTTPS, utiliser le proxy WebSocket (résout mixed content)
+      // Sinon utiliser l'URL LiveKit directement
       let livekitUrl = data.url;
 
-      if (import.meta.env.DEV && window.location.protocol === 'https:') {
-        // Mode dev avec Vite : utiliser le proxy WSS
-        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
+      if (window.location.protocol === 'https:') {
+        // HTTPS : utiliser le proxy WSS (wss://host:port/livekit)
+        livekitUrl = `wss://${window.location.host}/livekit`;
+        console.log('🔒 Mode HTTPS : utilisation proxy WebSocket');
       }
 
       console.log('🔗 Connexion LiveKit:', livekitUrl);
-      console.log('📝 Mode:', import.meta.env.DEV ? 'dev' : 'prod');
 
       // Se connecter à LiveKit avec les canaux virtuels
       await connect(livekitUrl, data.token, data.virtualChannels || []);
@@ -154,7 +154,7 @@ function App() {
       // Adapter l'URL LiveKit selon le protocole de la page
       let livekitUrl = data.url;
       if (window.location.protocol === 'https:') {
-        livekitUrl = `${window.location.protocol}//${window.location.host}/livekit`;
+        livekitUrl = `wss://${window.location.host}/livekit`;
       }
 
       // Changer de room LiveKit avec les canaux virtuels du nouveau groupe
