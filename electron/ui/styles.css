@@ -554,3 +554,136 @@ body {
     opacity: 1;
   }
 }
+
+/* VU Meters */
+.vu-meters {
+  padding: 1rem 0;
+}
+
+.vu-status {
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  text-align: center;
+}
+
+.vu-status.connected {
+  background: rgba(76, 175, 80, 0.2);
+  color: var(--accent-success);
+}
+
+.vu-status.disconnected {
+  background: rgba(244, 67, 54, 0.2);
+  color: var(--accent-error);
+}
+
+.vu-section {
+  margin-bottom: 2rem;
+}
+
+.vu-section h4 {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.vu-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vu-meter {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.vu-meter-clipping {
+  border-color: var(--accent-error);
+  animation: pulseClipping 0.5s ease-in-out infinite;
+}
+
+@keyframes pulseClipping {
+  0%, 100% {
+    border-color: var(--accent-error);
+  }
+  50% {
+    border-color: transparent;
+  }
+}
+
+.vu-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.vu-bar-container {
+  position: relative;
+  height: 24px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.vu-bar {
+  height: 100%;
+  transition: width 0.05s linear;
+  border-radius: 3px;
+}
+
+.vu-bar-green {
+  background: linear-gradient(to right, #4caf50, #66bb6a);
+}
+
+.vu-bar-yellow {
+  background: linear-gradient(to right, #ff9800, #ffa726);
+}
+
+.vu-bar-red {
+  background: linear-gradient(to right, #f44336, #e57373);
+}
+
+.vu-peak {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+  transition: left 0.1s linear;
+}
+
+.vu-values {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.vu-rms {
+  color: var(--text-secondary);
+}
+
+.vu-clip {
+  color: var(--accent-error);
+  font-weight: bold;
+  animation: blinkClip 0.5s ease-in-out infinite;
+}
+
+@keyframes blinkClip {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

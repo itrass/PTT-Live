@@ -8,6 +8,17 @@ const API_BASE = 'http://localhost:3000';
 let serverRunning = false;
 let statsInterval = null;
 let logsBuffer = [];
+let audioLevelsWS = null;
+let audioLevelsData = {
+  inputs: {},
+  groups: {},
+  outputs: {},
+  routing: {
+    activeInputs: [],
+    activeGroups: [],
+    activeOutputs: []
+  }
+};
 
 // ========== Initialisation ==========
 
@@ -167,6 +178,9 @@ function updateServerStatus(running) {
     // Démarrer le polling
     startStatsPolling();
 
+    // Connecter WebSocket audio levels
+    connectAudioLevelsWS();
+
     // Charger les données initiales
     loadInitialData();
   } else {
@@ -177,6 +191,9 @@ function updateServerStatus(running) {
 
     // Arrêter le polling
     stopStatsPolling();
+
+    // Déconnecter WebSocket audio levels
+    disconnectAudioLevelsWS();
   }
 }
 
@@ -475,7 +492,7 @@ async function loadViewData(view) {
       await fetchGroups();
       break;
     case 'monitoring':
-      // TODO: charger VU-mètres WebSocket
+      renderVUMeters();
       break;
     case 'logs':
       renderLogs();
@@ -577,6 +594,176 @@ function formatUptime(seconds) {
   const s = Math.floor(seconds % 60);
 
   return `${h}h ${m}m ${s}s`;
+}
+
+// ========== WebSocket Audio Levels ==========
+
+function connectAudioLevelsWS() {
+  if (audioLevelsWS && audioLevelsWS.readyState === WebSocket.OPEN) {
+    console.log('WebSocket audio-levels déjà connecté');
+    return;
+  }
+
+  const wsUrl = 'ws://localhost:3000/audio-levels';
+  console.log('Connexion WebSocket audio-levels...', wsUrl);
+
+  try {
+    audioLevelsWS = new WebSocket(wsUrl);
+
+    audioLevelsWS.onopen = () => {
+      console.log('WebSocket audio-levels connecté');
+      updateVUMetersStatus('Connecté');
+    };
+
+    audioLevelsWS.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+
+        switch (message.type) {
+          case 'initial':
+          case 'levels':
+            audioLevelsData = message.data;
+            renderVUMeters();
+            break;
+
+          case 'pong':
+            break;
+
+          default:
+            console.warn('Message WebSocket inconnu:', message.type);
+        }
+      } catch (error) {
+        console.error('Erreur parsing message WebSocket:', error);
+      }
+    };
+
+    audioLevelsWS.onerror = (error) => {
+      console.error('Erreur WebSocket audio-levels:', error);
+      updateVUMetersStatus('Erreur de connexion');
+    };
+
+    audioLevelsWS.onclose = () => {
+      console.log('WebSocket audio-levels déconnecté');
+      audioLevelsWS = null;
+      updateVUMetersStatus('Déconnecté');
+
+      // Reconnexion automatique si serveur actif
+      if (serverRunning) {
+        setTimeout(() => {
+          connectAudioLevelsWS();
+        }, 3000);
+      }
+    };
+
+    // Ping périodique
+    const pingInterval = setInterval(() => {
+      if (audioLevelsWS && audioLevelsWS.readyState === WebSocket.OPEN) {
+        audioLevelsWS.send(JSON.stringify({ type: 'ping' }));
+      } else {
+        clearInterval(pingInterval);
+      }
+    }, 10000);
+
+  } catch (error) {
+    console.error('Erreur création WebSocket:', error);
+    updateVUMetersStatus('Erreur de connexion');
+  }
+}
+
+function disconnectAudioLevelsWS() {
+  if (audioLevelsWS) {
+    audioLevelsWS.close();
+    audioLevelsWS = null;
+  }
+}
+
+function updateVUMetersStatus(status) {
+  const container = document.getElementById('vu-meters');
+  if (!container) return;
+
+  const statusEl = container.querySelector('.vu-status');
+  if (statusEl) {
+    statusEl.textContent = `WebSocket: ${status}`;
+    statusEl.className = `vu-status ${status === 'Connecté' ? 'connected' : 'disconnected'}`;
+  }
+}
+
+function renderVUMeters() {
+  const container = document.getElementById('vu-meters');
+  if (!container) return;
+
+  const hasData =
+    Object.keys(audioLevelsData.inputs).length > 0 ||
+    Object.keys(audioLevelsData.groups).length > 0 ||
+    Object.keys(audioLevelsData.outputs).length > 0;
+
+  if (!hasData) {
+    container.innerHTML = `
+      <p class="vu-status">WebSocket: En attente de connexion...</p>
+      <p class="empty-state">Aucune donnée audio disponible</p>
+    `;
+    return;
+  }
+
+  let html = '<div class="vu-status connected">WebSocket: Connecté</div>';
+
+  // Inputs
+  if (Object.keys(audioLevelsData.inputs).length > 0) {
+    html += '<div class="vu-section"><h4>Entrées Audio</h4><div class="vu-grid">';
+    Object.entries(audioLevelsData.inputs).forEach(([channelId, data]) => {
+      html += renderVUMeter(channelId, data, 'input');
+    });
+    html += '</div></div>';
+  }
+
+  // Groups
+  if (Object.keys(audioLevelsData.groups).length > 0) {
+    html += '<div class="vu-section"><h4>Groupes</h4><div class="vu-grid">';
+    Object.entries(audioLevelsData.groups).forEach(([groupName, data]) => {
+      html += renderVUMeter(groupName, data, 'group');
+    });
+    html += '</div></div>';
+  }
+
+  // Outputs
+  if (Object.keys(audioLevelsData.outputs).length > 0) {
+    html += '<div class="vu-section"><h4>Sorties Audio</h4><div class="vu-grid">';
+    Object.entries(audioLevelsData.outputs).forEach(([channelId, data]) => {
+      html += renderVUMeter(channelId, data, 'output');
+    });
+    html += '</div></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function renderVUMeter(label, data, type) {
+  const { rms, peak, clipping } = data;
+
+  // Convertir dBFS en pourcentage pour la barre (0dB = 100%, -60dB = 0%)
+  const rmsPercent = Math.max(0, Math.min(100, ((rms + 60) / 60) * 100));
+  const peakPercent = Math.max(0, Math.min(100, ((peak * 60 - 60 + 60) / 60) * 100));
+
+  // Couleur selon le niveau
+  let barClass = 'vu-bar-green';
+  if (rms > -6) barClass = 'vu-bar-red';
+  else if (rms > -12) barClass = 'vu-bar-yellow';
+
+  const clippingClass = clipping ? 'vu-meter-clipping' : '';
+
+  return `
+    <div class="vu-meter ${clippingClass}">
+      <div class="vu-label">${escapeHtml(label)}</div>
+      <div class="vu-bar-container">
+        <div class="vu-bar ${barClass}" style="width: ${rmsPercent}%"></div>
+        <div class="vu-peak" style="left: ${peakPercent}%"></div>
+      </div>
+      <div class="vu-values">
+        <span class="vu-rms">${rms.toFixed(1)} dB</span>
+        ${clipping ? '<span class="vu-clip">CLIP!</span>' : ''}
+      </div>
+    </div>
+  `;
 }
 
 function formatTime(isoString) {

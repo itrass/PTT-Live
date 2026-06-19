@@ -293,7 +293,7 @@ PORT=3001 npm start
 ## 🚧 TODO / Améliorations
 
 ### Priorité haute
-- [ ] **WebSocket VU-mètres** : implémenter connexion `/audio-levels`
+- [x] **WebSocket VU-mètres** : implémenter connexion `/audio-levels`
 - [ ] **Vraies icônes** : icns/png pour macOS/Linux
 - [ ] **Tray icon** : avec menu contextuel fonctionnel
 
