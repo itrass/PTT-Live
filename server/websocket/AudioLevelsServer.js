@@ -91,9 +91,11 @@ export class AudioLevelsServer extends EventEmitter {
     return new Promise((resolve, reject) => {
       try {
         // Si un serveur HTTP est fourni, utiliser le même port (upgrade HTTP → WebSocket)
+        // noServer: true car l'upgrade est dispatché manuellement par server/index.js
+        // (un seul listener 'upgrade' partagé avec le proxy LiveKit, voir handleUpgrade())
         // Sinon, créer un serveur WebSocket standalone sur son propre port
         const wsOptions = this.options.server
-          ? { server: this.options.server, path: '/audio-levels' }
+          ? { noServer: true }
           : { port: this.options.port };
 
         this.wss = new WebSocketServer(wsOptions);
@@ -122,6 +124,16 @@ export class AudioLevelsServer extends EventEmitter {
       } catch (error) {
         reject(error);
       }
+    });
+  }
+
+  /**
+   * Complète l'upgrade WebSocket pour une requête déjà identifiée comme
+   * ciblant ce serveur (voir le dispatcher 'upgrade' dans server/index.js)
+   */
+  handleUpgrade(req, socket, head) {
+    this.wss.handleUpgrade(req, socket, head, (ws) => {
+      this.wss.emit('connection', ws, req);
     });
   }
 

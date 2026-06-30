@@ -55,3 +55,6 @@ server.log
 
 # Runtime files
 /tmp/ptt-live.pid
+
+# Certificats SSL locaux (mkcert) - contiennent des clés privées
+certs/

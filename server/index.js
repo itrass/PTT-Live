@@ -520,28 +520,26 @@ async function start() {
       });
     }
 
-    // 2.5 Activer upgrade WebSocket pour proxy LiveKit
-    // Important : gérer AVANT AudioLevelsServer
-    server.on('upgrade', (req, socket, head) => {
-      log('info', `📡 WebSocket upgrade: ${req.url}`);
+    // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
+    // noServer: true en interne, l'upgrade est dispatché ci-dessous
+    const audioLevelsServer = new AudioLevelsServer({ server });
+    audioLevelsServer.start();
 
+    // 2.6 Dispatcher unique pour les upgrades WebSocket du port HTTP/HTTPS
+    // (proxy LiveKit et audio-levels partagent le même serveur, donc le même
+    // événement 'upgrade' : un seul listener doit trancher par chemin)
+    server.on('upgrade', (req, socket, head) => {
       if (req.url.startsWith('/livekit')) {
-        log('info', '🔀 Proxying to LiveKit on ws://localhost:7880');
-        // Réécrire l'URL pour enlever /livekit
         req.url = req.url.replace(/^\/livekit/, '');
         livekitProxy.ws(req, socket, head);
       } else if (req.url.startsWith('/audio-levels')) {
-        log('debug', '📊 Audio levels WebSocket - handled by AudioLevelsServer');
-        // AudioLevelsServer will handle this
+        audioLevelsServer.handleUpgrade(req, socket, head);
       } else {
         log('warn', `⚠️  Unknown WebSocket path: ${req.url}`);
         socket.destroy();
       }
     });
 
-    // 2.6 Démarrer WebSocket Audio Levels (même port que l'API)
-    const audioLevelsServer = new AudioLevelsServer({ server });
-    audioLevelsServer.start();
     const wsProtocol = ENABLE_HTTPS ? 'wss' : 'ws';
     log('info', `✓ WebSocket Audio Levels démarré sur ${wsProtocol}://${SERVER_HOST}:${SERVER_PORT}`);
 
