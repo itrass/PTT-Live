@@ -6,9 +6,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Même logique que dans main.js : doit rester synchronisé avec SERVER_URL
+// (127.0.0.1 : le serveur n'écoute qu'en IPv4, voir le commentaire dans main.js)
 const SERVER_PORT = process.env.PORT || 3000;
 const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
-const SERVER_URL = `${ENABLE_HTTPS ? 'https' : 'http'}://localhost:${SERVER_PORT}`;
+const SERVER_URL = `${ENABLE_HTTPS ? 'https' : 'http'}://127.0.0.1:${SERVER_PORT}`;
 
 // Exposer l'API au renderer de manière sécurisée
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -29,6 +30,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('server:log', (event, data) => callback(data));
     }
   },
+
+  // QR Code (généré côté Main Process, pas de dépendance CDN)
+  generateQRCode: (text) => ipcRenderer.invoke('qrcode:generate', text),
+
+  // IP réseau locale (même détection que pour les certificats mkcert)
+  getNetworkIP: () => ipcRenderer.invoke('network:ip'),
 
   // Helpers
   platform: process.platform,

@@ -8,6 +8,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
 const https = require('https');
+const QRCode = require('qrcode');
 const setupHelper = require('./setup-helper');
 
 // État de l'application
@@ -22,7 +23,10 @@ const SERVER_PORT = process.env.PORT || 3000;
 // lancement) ; ENABLE_HTTPS=false permet de revenir explicitement en HTTP
 const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
 const SERVER_PROTOCOL = ENABLE_HTTPS ? 'https' : 'http';
-const SERVER_URL = `${SERVER_PROTOCOL}://localhost:${SERVER_PORT}`;
+// 127.0.0.1 plutôt que localhost : le serveur n'écoute qu'en IPv4 (host: 0.0.0.0
+// dans config.yaml), or le Node embarqué par Electron peut résoudre "localhost"
+// en IPv6 (::1) en priorité, ce qui ferait échouer silencieusement le ping
+const SERVER_URL = `${SERVER_PROTOCOL}://127.0.0.1:${SERVER_PORT}`;
 const isDev = process.argv.includes('--dev');
 
 /**
@@ -339,12 +343,26 @@ app.whenReady().then(async () => {
     return {
       running: health.success,
       health: health.data,
+      error: health.error,
       url: SERVER_URL
     };
   });
 
   ipcMain.handle('server:ping', async () => {
     return await pingServer();
+  });
+
+  ipcMain.handle('qrcode:generate', async (event, text) => {
+    try {
+      const dataUrl = await QRCode.toDataURL(text, { width: 256, margin: 2 });
+      return { success: true, dataUrl };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('network:ip', async () => {
+    return setupHelper.getNetworkIP();
   });
 
   // Créer fenêtre

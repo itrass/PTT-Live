@@ -194,6 +194,10 @@ function updateServerStatus(running) {
 
     // Déconnecter WebSocket audio levels
     disconnectAudioLevelsWS();
+
+    // QR code obsolète tant que le serveur est arrêté : revenir au placeholder
+    document.getElementById('qr-code').removeAttribute('src');
+    document.getElementById('client-url').textContent = '--';
   }
 }
 
@@ -362,31 +366,29 @@ async function generateQRCode() {
 
     // Détecter l'IP réseau (depuis hostname ou config)
     const networkIP = await getNetworkIP();
-    const clientUrl = `https://${networkIP}:5173`; // Mode dev Vite
+    // En prod (Electron), le client buildé est servi par le serveur Express
+    // lui-même (même port que l'API), pas par Vite (port 5173, dev only)
+    // API_BASE pointe sur 127.0.0.1 (loopback, pour le ping interne) :
+    // on ne réutilise que protocole + port, l'IP doit être celle du réseau local
+    const serverOrigin = new URL(API_BASE);
+    const clientUrl = `${serverOrigin.protocol}//${networkIP}:${serverOrigin.port}`;
 
     document.getElementById('client-url').textContent = clientUrl;
 
-    // Générer QR Code
-    const canvas = document.getElementById('qr-code');
-    if (canvas && window.QRCode) {
-      QRCode.toCanvas(canvas, clientUrl, {
-        width: 256,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      }, (error) => {
-        if (error) {
-          console.error('Erreur génération QR Code:', error);
-        } else {
-          console.log('✅ QR Code généré');
-        }
-      });
+    // Générer QR Code (rendu côté Main Process, pas de dépendance réseau/CDN)
+    const img = document.getElementById('qr-code');
+    if (img) {
+      const result = await window.electronAPI.generateQRCode(clientUrl);
+      if (result.success) {
+        img.src = result.dataUrl;
+        console.log('✅ QR Code généré');
+      } else {
+        console.error('Erreur génération QR Code:', result.error);
+      }
     }
   } catch (error) {
     console.error('Erreur récupération URL:', error);
-    document.getElementById('client-url').textContent = 'https://localhost:5173';
+    document.getElementById('client-url').textContent = API_BASE;
   }
 
   // Bouton copier URL (setup une seule fois)
@@ -402,15 +404,12 @@ async function generateQRCode() {
 }
 
 async function getNetworkIP() {
-  // Méthode 1 : depuis l'API serveur (qui détecte déjà l'IP)
+  // Détection via le Main Process (même logique que pour les certs mkcert) :
+  // /admin/config renvoie la valeur YAML brute ("AUTO"), jamais l'IP résolue,
+  // donc inutilisable ici.
   try {
-    const config = await apiCall('/admin/config');
-    if (config && config.server && config.server.livekit && config.server.livekit.url) {
-      const url = config.server.livekit.url;
-      // Extraire l'IP depuis ws://IP:7880
-      const match = url.match(/ws:\/\/([^:]+):/);
-      if (match) return match[1];
-    }
+    const ip = await window.electronAPI.getNetworkIP();
+    if (ip) return ip;
   } catch (error) {
     console.error('Erreur détection IP:', error);
   }

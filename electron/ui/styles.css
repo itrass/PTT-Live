@@ -230,9 +230,49 @@ body {
   align-items: center;
 }
 
+.qr-wrapper {
+  position: relative;
+  width: 256px;
+  height: 256px;
+  flex-shrink: 0;
+}
+
 #qr-code {
+  display: none;
+  width: 256px;
+  height: 256px;
   border: 4px solid white;
   border-radius: 8px;
+}
+
+/* L'image n'a un attribut src qu'une fois le QR code généré */
+#qr-code[src] {
+  display: block;
+}
+
+#qr-code[src] ~ .qr-placeholder {
+  display: none;
+}
+
+.qr-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.qr-placeholder-icon {
+  font-size: 2.5rem;
+  opacity: 0.5;
 }
 
 .qr-info {
