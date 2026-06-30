@@ -2,7 +2,7 @@
  * PTT Live Desktop - Renderer Process Logic
  */
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = window.electronAPI?.serverUrl || 'http://localhost:3000';
 
 // État global
 let serverRunning = false;
@@ -604,7 +604,7 @@ function connectAudioLevelsWS() {
     return;
   }
 
-  const wsUrl = 'ws://localhost:3000/audio-levels';
+  const wsUrl = API_BASE.replace(/^http/, 'ws') + '/audio-levels';
   console.log('Connexion WebSocket audio-levels...', wsUrl);
 
   try {

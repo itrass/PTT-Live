@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, dialog } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 const setupHelper = require('./setup-helper');
 
 // État de l'application
@@ -17,7 +18,11 @@ let serverStarted = false;
 let rendererReady = false;
 
 const SERVER_PORT = process.env.PORT || 3000;
-const SERVER_URL = `http://localhost:${SERVER_PORT}`;
+// HTTPS activé par défaut (cohérent avec le setup mkcert automatique au premier
+// lancement) ; ENABLE_HTTPS=false permet de revenir explicitement en HTTP
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
+const SERVER_PROTOCOL = ENABLE_HTTPS ? 'https' : 'http';
+const SERVER_URL = `${SERVER_PROTOCOL}://localhost:${SERVER_PORT}`;
 const isDev = process.argv.includes('--dev');
 
 /**
@@ -133,6 +138,7 @@ async function startServer() {
         ...process.env,
         PORT: SERVER_PORT,
         USE_LOCAL_LIVEKIT: 'true',
+        ENABLE_HTTPS: ENABLE_HTTPS ? 'true' : 'false',
         NODE_ENV: isDev ? 'development' : 'production'
       }
     });
@@ -289,7 +295,13 @@ async function stopServer() {
  */
 async function pingServer() {
   return new Promise((resolve) => {
-    http.get(`${SERVER_URL}/health`, (res) => {
+    const client = ENABLE_HTTPS ? https : http;
+    // rejectUnauthorized: false : le cert mkcert est approuvé par le Keychain
+    // macOS (Safari/Chrome/Electron renderer), mais le module https de Node
+    // ne lit pas ce trust store et rejetterait sinon ce ping vers notre
+    // propre serveur local.
+    const options = ENABLE_HTTPS ? { rejectUnauthorized: false } : {};
+    client.get(`${SERVER_URL}/health`, options, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {

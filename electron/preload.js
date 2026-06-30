@@ -5,8 +5,15 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Même logique que dans main.js : doit rester synchronisé avec SERVER_URL
+const SERVER_PORT = process.env.PORT || 3000;
+const ENABLE_HTTPS = process.env.ENABLE_HTTPS !== 'false';
+const SERVER_URL = `${ENABLE_HTTPS ? 'https' : 'http'}://localhost:${SERVER_PORT}`;
+
 // Exposer l'API au renderer de manière sécurisée
 contextBridge.exposeInMainWorld('electronAPI', {
+  serverUrl: SERVER_URL,
+
   // Contrôle serveur
   server: {
     start: () => ipcRenderer.invoke('server:start'),
