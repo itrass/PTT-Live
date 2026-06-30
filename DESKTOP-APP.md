@@ -5,11 +5,12 @@ Application Electron pour gérer le serveur PTT Live avec interface graphique co
 ## 📸 Aperçu
 
 L'application desktop intègre :
-- ✅ **Dashboard temps réel** : stats, utilisateurs, QR Code
+- ✅ **Dashboard temps réel** : stats, utilisateurs, QR Code (généré côté Main Process, sans dépendance CDN)
+- ✅ **HTTPS automatique** : certificats locaux mkcert installés au premier lancement
 - ✅ **Configuration audio** : sélection devices, sample rate, bitrate
 - ✅ **Gestion groupes** : CRUD complet avec API
-- ✅ **Monitoring** : VU-mètres (prévu), logs filtrables
-- ✅ **Contrôle serveur** : démarrage/arrêt avec feedback visuel
+- ✅ **Monitoring** : VU-mètres temps réel via WebSocket, logs filtrables
+- ✅ **Contrôle serveur** : démarrage manuel/arrêt avec feedback visuel
 
 ---
 
@@ -24,7 +25,7 @@ cd electron
 npm start
 ```
 
-L'application démarre automatiquement le serveur PTT Live au lancement.
+Au premier lancement, l'app configure automatiquement les certificats HTTPS locaux (mkcert) — voir [HTTPS et certificats](#-https-et-certificats). Le serveur PTT Live **ne démarre pas automatiquement** : cliquez sur "Démarrer" dans le dashboard pour le lancer.
 
 ---
 
@@ -50,9 +51,12 @@ npm install
 - Total connexions
 
 **QR Code** :
-- Généré automatiquement avec l'IP réseau
+- Généré côté Main Process (lib `qrcode`, pas de CDN externe — fonctionne sans accès Internet sur le WiFi d'un événement)
+- IP réseau détectée par le Main Process (même logique que pour les certificats mkcert)
+- URL construite à partir du protocole/port réels du serveur (HTTPS par défaut)
 - Scanner depuis smartphone pour connexion rapide
 - Bouton copier URL
+- Placeholder visuel tant que le serveur est arrêté ou qu'aucun QR code n'a été généré
 
 **Utilisateurs** :
 - Liste en temps réel
@@ -80,10 +84,10 @@ npm install
 
 ### 4. Monitoring
 
-**VU-Mètres** (à venir) :
-- Niveaux audio par canal (input/output)
-- Temps réel via WebSocket
-- Détection clipping
+**VU-Mètres** :
+- Niveaux audio par canal (input/output) et par groupe
+- Temps réel via WebSocket (`/audio-levels`, même port que l'API)
+- Reconnexion automatique si la connexion WebSocket tombe
 
 ### 5. Logs
 
@@ -114,20 +118,23 @@ npm install
 │  │                                           │ │
 │  │  • HTML/CSS/JS (pas de framework)        │ │
 │  │  • Fetch API REST :3000/admin/*          │ │
-│  │  • WebSocket audio levels (prévu)        │ │
-│  │  • QR Code (qrcode.js)                   │ │
+│  │  • WebSocket audio levels (live)         │ │
+│  │  • QR Code (data URL via IPC)            │ │
 │  └───────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────┘
-                    ↕ HTTP
+                    ↕ HTTPS (127.0.0.1, certs mkcert)
 ┌─────────────────────────────────────────────────┐
 │         SERVEUR PTT LIVE (spawned)              │
 │                                                 │
-│  • LiveKit Server (binaire Go)                 │
+│  • LiveKit Server (binaire Go) :7880           │
 │  • Audio Bridge Manager                        │
-│  • API REST Express :3000                      │
-│  • WebSocket Audio Levels                      │
+│  • API REST Express :3000 (HTTPS)              │
+│  • Proxy HTTP + WS → LiveKit (/livekit/*)      │
+│  • WebSocket Audio Levels (/audio-levels)      │
 └─────────────────────────────────────────────────┘
 ```
+
+Le proxy `/livekit/*` (http-proxy natif) permet aux clients de joindre LiveKit via le même port/certificat HTTPS que l'API, sans exposer le port 7880 séparément. Le serveur Express dispatch lui-même les événements `upgrade` (un seul listener) entre le proxy LiveKit et le WebSocket audio-levels, qui partagent le même port.
 
 ---
 
@@ -150,9 +157,31 @@ L'interface desktop utilise toutes les routes admin existantes :
 | `/admin/devices/list` | GET | Auto-détection (macOS/Linux) |
 | `/admin/logs` | GET | Logs serveur |
 | `/health` | GET | Health check |
+| `/livekit/*` | ALL | Proxy HTTP vers LiveKit Server (port 7880) |
 
-WebSocket (prévu) :
-- `ws://localhost:3000/audio-levels` → VU-mètres temps réel
+WebSocket :
+- `wss://127.0.0.1:3000/audio-levels` → VU-mètres temps réel
+- `wss://127.0.0.1:3000/livekit/*` → Proxy WebSocket signaling LiveKit (clients PWA)
+
+---
+
+## 🔒 HTTPS et certificats
+
+L'app est en HTTPS par défaut (`ENABLE_HTTPS=false` pour revenir en HTTP explicitement).
+
+### Setup automatique (premier lancement)
+
+Au premier démarrage, si `certs/localhost.pem` et `certs/localhost-key.pem` sont absents, `electron/setup-helper.js` :
+1. Installe `mkcert` automatiquement (Homebrew sur macOS, téléchargement direct sur Linux)
+2. Installe la CA locale (`mkcert -install`) dans le trousseau système
+3. Détecte l'IP réseau et génère les certificats pour `localhost`, `127.0.0.1` et cette IP
+4. Affiche des dialogs de progression/erreur (avec fallback manuel `./setup-certificates.sh`)
+
+### Points d'attention
+
+- **127.0.0.1, pas localhost** : le serveur écoute en IPv4 (`host: 0.0.0.0`), mais le Node embarqué par Electron peut résoudre `localhost` en IPv6 (`::1`) en priorité. `main.js` et `preload.js` utilisent donc `127.0.0.1` pour tous les appels internes (ping, health check) afin d'éviter des échecs silencieux.
+- **Ping interne et `rejectUnauthorized`** : le module `https` de Node ne lit pas le trousseau système où mkcert installe sa CA (contrairement à Safari/Chrome/Electron renderer) ; `pingServer()` passe donc `rejectUnauthorized: false` pour son propre ping local.
+- **Proxy LiveKit en HTTPS** : LiveKit Server local tourne en HTTP brut (port 7880) ; le proxy Express (`http-proxy`) fait le pont HTTPS ↔ HTTP côté clients.
 
 ---
 
@@ -283,10 +312,18 @@ PORT=3001 npm start
 - Vérifier permissions LiveKit binaire
 - Voir logs dans DevTools console
 
+**Certificats SSL manquants / setup mkcert échoue** :
+- Exécuter manuellement : `./setup-certificates.sh`
+- Ou installer mkcert : https://github.com/FiloSottile/mkcert puis `mkcert -install`
+- Vérifier la présence de `certs/localhost.pem` et `certs/localhost-key.pem`
+
+**Statut serveur affiché à tort comme "arrêté"** :
+- Vérifier que le ping utilise bien `127.0.0.1` (pas `localhost`, qui peut résoudre en IPv6 alors que le serveur n'écoute qu'en IPv4)
+- En HTTPS, le ping interne ignore volontairement les erreurs de certificat (`rejectUnauthorized: false`) puisque Node ne lit pas le trousseau système où mkcert installe sa CA
+
 **QR Code ne s'affiche pas** :
-- Vérifier que le serveur tourne
-- Voir console : "✅ QR Code généré"
-- Script CDN chargé ?
+- Vérifier que le serveur tourne (le QR code est réinitialisé tant qu'il est arrêté)
+- Le QR code est généré côté Main Process (IPC `qrcode:generate`), pas de dépendance réseau/CDN
 
 ---
 
@@ -304,10 +341,8 @@ PORT=3001 npm start
 - [ ] **Notifications desktop** : via Electron Notification API
 
 ### Priorité basse
-- [ ] **Auth admin** : mot de passe pour accès dashboard
 - [ ] **Thème toggle** : dark/light mode
 - [ ] **Auto-update** : electron-updater pour mises à jour
-- [ ] **I18n** : français/anglais
 
 ### Technique
 - [ ] **Tests** : Spectron ou Playwright pour Electron
@@ -326,18 +361,21 @@ electron/
 │                        # - Spawn serveur
 │                        # - IPC handlers
 │                        # - Window management
+│                        # - Setup SSL au premier lancement
 │
 ├── preload.js           # IPC Bridge sécurisé
 │                        # - contextBridge
 │                        # - Expose electronAPI
+│
+├── setup-helper.js      # Installation auto mkcert + génération certificats
+│                        # - Détection IP réseau
 │
 ├── package.json         # Config Electron + electron-builder
 │
 └── ui/                  # Renderer Process (Frontend)
     ├── index.html       # Structure UI
     ├── styles.css       # Styles (dark theme)
-    ├── app.js           # Logic frontend
-    └── qrcode.min.js    # QR Code library
+    └── app.js           # Logic frontend (QR code reçu via IPC en data URL)
 ```
 
 ### Communication IPC
@@ -397,4 +435,4 @@ Même licence que PTT Live (MIT)
 ---
 
 **Version** : 0.3.0
-**Dernière mise à jour** : 2026-06-19
+**Dernière mise à jour** : 2026-06-30
