@@ -336,9 +336,9 @@ PORT=3001 npm start
 
 ### Priorité moyenne
 - [ ] **Graphiques monitoring** : Chart.js pour latence/bande passante
-- [ ] **Export logs** : bouton télécharger CSV/JSON
+- [x] **Export logs** : bouton télécharger JSON (filtre niveau appliqué)
 - [ ] **Matrice routing** : interface graphique drag & drop
-- [ ] **Notifications desktop** : via Electron Notification API
+- [x] **Export & import config** : bouton télécharger YAML et charger config (backup auto .bak)
 
 ### Priorité basse
 - [ ] **Thème toggle** : dark/light mode

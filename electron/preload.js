@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // IP réseau locale (même détection que pour les certificats mkcert)
   getNetworkIP: () => ipcRenderer.invoke('network:ip'),
 
+  // Export/import configuration YAML via dialog système
+  config: {
+    export: () => ipcRenderer.invoke('config:export'),
+    import: () => ipcRenderer.invoke('config:import')
+  },
+
   // Helpers
   platform: process.platform,
   version: process.env.npm_package_version || '0.3.0'

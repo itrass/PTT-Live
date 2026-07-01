@@ -5,6 +5,7 @@
 
 const { app, BrowserWindow, ipcMain, Menu, Tray, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
 const https = require('https');
@@ -363,6 +364,52 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('network:ip', async () => {
     return setupHelper.getNetworkIP();
+  });
+
+  ipcMain.handle('config:export', async () => {
+    const configPath = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
+
+    try {
+      const content = fs.readFileSync(configPath, 'utf8');
+
+      const { filePath } = await dialog.showSaveDialog(mainWindow, {
+        title: 'Exporter la configuration',
+        defaultPath: 'config.yaml',
+        filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }]
+      });
+
+      if (!filePath) return { success: false, cancelled: true };
+
+      fs.writeFileSync(filePath, content, 'utf8');
+      return { success: true, filePath };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('config:import', async () => {
+    const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Importer une configuration',
+      filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }],
+      properties: ['openFile']
+    });
+
+    if (!filePaths || filePaths.length === 0) return { success: false, cancelled: true };
+
+    try {
+      const content = fs.readFileSync(filePaths[0], 'utf8');
+      const configPath = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
+
+      // Backup de l'ancienne config avant remplacement
+      if (fs.existsSync(configPath)) {
+        fs.copyFileSync(configPath, configPath + '.bak');
+      }
+
+      fs.writeFileSync(configPath, content, 'utf8');
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   });
 
   // Créer fenêtre

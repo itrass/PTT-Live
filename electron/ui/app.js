@@ -312,18 +312,82 @@ async function fetchGroups() {
     return;
   }
 
-  container.innerHTML = data.groups.map(group => `
+  container.innerHTML = data.groups.map(group => {
+    const id = slugify(group.name);
+    return `
     <div class="group-item">
       <div class="group-info">
-        <h4>${group.name}</h4>
-        <p>Bitrate: ${group.audioBitrate || 96} kbps • ID: ${group.id}</p>
+        <h4>${escapeHtml(group.name)}</h4>
+        <p>Bitrate: ${group.audioBitrate || 96} kbps • ID: ${escapeHtml(id)}</p>
       </div>
       <div class="group-actions">
-        <button class="btn btn-small btn-secondary">Modifier</button>
-        <button class="btn btn-small btn-secondary">Supprimer</button>
+        <button class="btn btn-small btn-secondary"
+          data-action="edit"
+          data-id="${escapeHtml(id)}"
+          data-name="${escapeHtml(group.name)}"
+          data-bitrate="${group.audioBitrate || 96}">Modifier</button>
+        <button class="btn btn-small btn-danger"
+          data-action="delete"
+          data-id="${escapeHtml(id)}"
+          data-name="${escapeHtml(group.name)}">Supprimer</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
+}
+
+async function editGroup(id, currentName, currentBitrate) {
+  const newName = prompt('Nom du groupe:', currentName);
+  if (newName === null || newName.trim() === '') return;
+
+  const newBitrateStr = prompt('Bitrate (kbps, 32-320):', String(currentBitrate));
+  if (newBitrateStr === null) return;
+
+  const newBitrate = parseInt(newBitrateStr);
+  if (isNaN(newBitrate) || newBitrate < 32 || newBitrate > 320) {
+    showNotification('Bitrate invalide (32-320 kbps)', 'error');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim(), audioBitrate: newBitrate })
+    });
+
+    if (response.ok) {
+      showNotification('Groupe modifié', 'success');
+      await fetchGroups();
+    } else {
+      const err = await response.json().catch(() => ({}));
+      showNotification('Erreur: ' + (err.error || 'Modification échouée'), 'error');
+    }
+  } catch (error) {
+    console.error('Erreur edit group:', error);
+    showNotification('Erreur réseau', 'error');
+  }
+}
+
+async function deleteGroup(id, name) {
+  if (!confirm(`Supprimer le groupe "${name}" ?`)) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (response.ok) {
+      showNotification('Groupe supprimé', 'success');
+      await fetchGroups();
+    } else {
+      const err = await response.json().catch(() => ({}));
+      showNotification('Erreur: ' + (err.error || 'Suppression échouée'), 'error');
+    }
+  } catch (error) {
+    console.error('Erreur delete group:', error);
+    showNotification('Erreur réseau', 'error');
+  }
 }
 
 async function fetchConfig() {
@@ -581,9 +645,90 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Exporter config.yaml
+  const btnExportConfig = document.getElementById('btn-export-config');
+  if (btnExportConfig) {
+    btnExportConfig.addEventListener('click', async () => {
+      const result = await window.electronAPI.config.export();
+      if (result.success) {
+        showNotification('Configuration exportée', 'success');
+      } else if (!result.cancelled) {
+        showNotification('Erreur export: ' + (result.error || 'Échec'), 'error');
+      }
+    });
+  }
+
+  // Importer config.yaml
+  const btnImportConfig = document.getElementById('btn-import-config');
+  if (btnImportConfig) {
+    btnImportConfig.addEventListener('click', async () => {
+      const result = await window.electronAPI.config.import();
+      if (result.success) {
+        showNotification('Configuration importée - Redémarrez le serveur pour appliquer', 'warning');
+        if (serverRunning) {
+          await fetchConfig();
+        }
+      } else if (!result.cancelled) {
+        showNotification('Erreur import: ' + (result.error || 'Échec'), 'error');
+      }
+    });
+  }
+
+  // Exporter les logs
+  const btnExportLogs = document.getElementById('btn-export-logs');
+  if (btnExportLogs) {
+    btnExportLogs.addEventListener('click', () => {
+      const levelFilter = document.getElementById('log-level-filter').value;
+      const logs = levelFilter ? logsBuffer.filter(l => l.level === levelFilter) : logsBuffer;
+
+      if (logs.length === 0) {
+        showNotification('Aucun log à exporter', 'info');
+        return;
+      }
+
+      const content = JSON.stringify(logs, null, 2);
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ptt-live-logs-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showNotification(`${logs.length} logs exportés`, 'success');
+    });
+  }
+
+  // Délégation d'événements pour modifier/supprimer un groupe
+  const groupsList = document.getElementById('groups-list');
+  if (groupsList) {
+    groupsList.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const name = btn.dataset.name;
+
+      if (action === 'edit') {
+        await editGroup(id, name, parseInt(btn.dataset.bitrate));
+      } else if (action === 'delete') {
+        await deleteGroup(id, name);
+      }
+    });
+  }
 });
 
 // ========== Helpers ==========
+
+function slugify(text) {
+  return text.toString().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-');
+}
 
 function formatUptime(seconds) {
   if (!seconds) return '--';

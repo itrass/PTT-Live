@@ -121,6 +121,15 @@ body {
   font-size: 0.8125rem;
 }
 
+.btn-danger {
+  background: var(--accent-error);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
 /* Main Content */
 .main-content {
   display: flex;
@@ -368,6 +377,18 @@ body {
 .form-control:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+/* Config actions */
+.config-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.config-note {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 /* Groups List */

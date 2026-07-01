@@ -2,7 +2,7 @@ audio:
   sampleRate: 48000
   channels: 2
   frameSize: 20
-  defaultBitrate: 96
+  defaultBitrate: 128
   jitterBufferMs: 40
   device:
     inputDeviceId: Loopback Audio 4

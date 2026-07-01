@@ -124,6 +124,15 @@
           </div>
 
           <div class="section">
+            <h3>💾 Sauvegarde de configuration</h3>
+            <div class="config-actions">
+              <button class="btn btn-secondary" id="btn-export-config">Exporter config.yaml</button>
+              <button class="btn btn-secondary" id="btn-import-config">Importer config.yaml</button>
+            </div>
+            <p class="config-note">L'import remplace config.yaml (backup automatique en .bak). Redémarrez le serveur pour appliquer.</p>
+          </div>
+
+          <div class="section">
             <h3>🎚️ Paramètres Audio</h3>
             <div class="form-group">
               <label>Sample Rate</label>
@@ -170,6 +179,7 @@
           <h2>Logs Serveur</h2>
           <div class="logs-controls">
             <button class="btn btn-small" id="btn-clear-logs">Effacer</button>
+            <button class="btn btn-small btn-secondary" id="btn-export-logs">Exporter JSON</button>
             <select id="log-level-filter" class="form-control form-control-small">
               <option value="">Tous les niveaux</option>
               <option value="error">Erreurs</option>
