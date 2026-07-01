@@ -89,6 +89,46 @@ class AudioBridgeManager extends EventEmitter {
         return;
       }
 
+      // Générer un token JWT par server audio user
+      const serverAudioUsers = [];
+
+      for (const user of config.server_audio_users || []) {
+        const groupId = slugify(user.group);
+
+        const token = new AccessToken(
+          config.server?.livekit?.apiKey || 'devkey',
+          config.server?.livekit?.apiSecret || 'secret',
+          {
+            identity: `server-${user.name}`,
+            name: `Server Audio - ${user.name}`,
+            metadata: JSON.stringify({
+              role: 'server-audio-user',
+              group: groupId
+            })
+          }
+        );
+
+        token.addGrant({
+          room: groupId,
+          roomJoin: true,
+          canPublish: true,
+          canSubscribe: true,
+          canPublishData: true
+        });
+
+        const jwt = await token.toJwt();
+
+        serverAudioUsers.push({
+          name: user.name,
+          groupId,
+          inputChannel: user.input_channel ?? user.inputChannel ?? 0,
+          outputChannel: user.output_channel ?? user.outputChannel ?? 0,
+          token: jwt
+        });
+
+        console.log(`✓ Token JWT généré pour server audio user "${user.name}" (room: ${groupId})`);
+      }
+
       // Import dynamique du AudioBridge
       const { AudioBridge } = await import('./AudioBridge.js');
 
@@ -123,6 +163,8 @@ class AudioBridgeManager extends EventEmitter {
         // Options LiveKit (multi-rooms)
         liveKitUrl,
         liveKitTokens, // Tableau de { groupName, groupId, token }
+        // Server audio users
+        serverAudioUsers,
         // Options de routing
         routing: config.audio?.routing || {},
         groups: config.groups || [],

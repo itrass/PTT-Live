@@ -39,6 +39,22 @@ audio:
       "0": L
       "1": R
       "2": Talkback Console
+# Utilisateurs audio gérés côté serveur.
+# Chaque entrée crée un participant LiveKit indépendant avec un canal physique
+# d'entrée (microphone/ligne) et un canal physique de sortie dédié (mix-minus naturel).
+#
+# Exemple (décommenter et adapter) :
+# server_audio_users:
+#   - name: foh
+#     group: default          # ID du groupe LiveKit (room) à rejoindre
+#     input_channel: 1        # Index canal physique d'entrée (depuis inputDeviceId)
+#     output_channel: 2       # Index canal physique de sortie (vers outputDeviceId)
+#   - name: returns
+#     group: default
+#     input_channel: 2
+#     output_channel: 3
+server_audio_users: []
+
 groups:
   - name: Default
     audioBitrate: 96

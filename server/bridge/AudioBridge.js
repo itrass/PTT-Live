@@ -19,6 +19,7 @@ import OpusCodec, { OpusPresets } from './OpusCodec.js';
 import JitterBuffer, { JitterBufferPresets } from './JitterBuffer.js';
 import LiveKitClient from './LiveKitClient.js';
 import GroupAudioRouter from './GroupAudioRouter.js';
+import ServerAudioUser from './ServerAudioUser.js';
 
 export class AudioBridge extends EventEmitter {
   constructor(options = {}) {
@@ -67,6 +68,9 @@ export class AudioBridge extends EventEmitter {
 
     // Frame accumulators pour LiveKit (240 samples → 960 samples)
     this.liveKitFrameAccumulators = new Map(); // Map<groupName, { buffer: Float32Array, offset: number }>
+
+    // Utilisateurs audio gérés côté serveur (participants LiveKit avec I/O physique dédiés)
+    this.serverAudioUsers = new Map(); // Map<name, ServerAudioUser>
 
     // Pool de buffers pré-alloués pour éviter allocations répétées
     this.bufferPool = {
@@ -120,7 +124,10 @@ export class AudioBridge extends EventEmitter {
       // 5. Connexion à LiveKit
       await this._initLiveKit();
 
-      // 6. Démarrage du routing audio
+      // 6. Initialisation des server audio users
+      await this._initServerAudioUsers();
+
+      // 7. Démarrage du routing audio
       await this._startAudioRouting();
 
       this.isRunning = true;
@@ -387,6 +394,57 @@ export class AudioBridge extends EventEmitter {
   }
 
   /**
+   * Initialise les utilisateurs audio serveur (participants LiveKit avec I/O physique)
+   * @private
+   */
+  async _initServerAudioUsers() {
+    const users = this.options.serverAudioUsers;
+    if (!users || users.length === 0) return;
+
+    console.log(`🎤 Initialisation ${users.length} server audio user(s)...`);
+
+    for (const userConfig of users) {
+      const user = new ServerAudioUser({
+        name: userConfig.name,
+        groupId: userConfig.groupId,
+        inputChannel: userConfig.inputChannel,
+        outputChannel: userConfig.outputChannel,
+        liveKitUrl: this.options.liveKitUrl,
+        token: userConfig.token,
+        sampleRate: this.options.sampleRate,
+        frameSize: this.options.frameSize
+      });
+
+      // Quand une frame de mix est prête, l'envoyer vers le canal physique de sortie
+      const outputCh = userConfig.outputChannel;
+      user.on('outputReady', (mixBuffer) => {
+        if (!this.audioBackend) return;
+        const numChannels = this.options.channels || 1;
+        const frameSize = this.options.frameSize;
+
+        if (numChannels <= 1) {
+          const pcmBuffer = this._float32ToBuffer(mixBuffer);
+          this.audioBackend.queueAudio(pcmBuffer);
+        } else {
+          // Construire un buffer multi-canaux avec l'audio du user sur son canal de sortie
+          const interleaved = new Float32Array(frameSize * numChannels);
+          for (let i = 0; i < frameSize; i++) {
+            interleaved[i * numChannels + outputCh] = mixBuffer[i];
+          }
+          const pcmBuffer = this._float32ToBuffer(interleaved);
+          this.audioBackend.queueAudio(pcmBuffer);
+        }
+      });
+
+      await user.start();
+      this.serverAudioUsers.set(userConfig.name, user);
+      console.log(`✓ Server audio user "${userConfig.name}" démarré (entrée canal ${userConfig.inputChannel} → sortie canal ${userConfig.outputChannel}, room: ${userConfig.groupId})`);
+    }
+
+    console.log(`✓ ${this.serverAudioUsers.size} server audio user(s) initialisés`);
+  }
+
+  /**
    * Démarre le routing audio bidirectionnel complet
    * @private
    */
@@ -421,6 +479,14 @@ export class AudioBridge extends EventEmitter {
             // Mapper canal hardware → canal logique (peut être configuré)
             const logicalChannelId = this.options.channelMapping?.[ch] ?? ch;
             this.inputChannelBuffers.set(logicalChannelId, channelBuffer);
+          }
+        }
+
+        // ÉTAPE 0 : Envoyer les données de chaque canal vers les server audio users
+        for (const [, user] of this.serverAudioUsers) {
+          const channelData = this.inputChannelBuffers.get(user.inputChannel);
+          if (channelData) {
+            user.sendAudio(channelData);
           }
         }
 
@@ -759,6 +825,13 @@ export class AudioBridge extends EventEmitter {
       await client.destroy();
     }
     this.liveKitClients.clear();
+
+    // Arrêter les server audio users
+    for (const [name, user] of this.serverAudioUsers.entries()) {
+      console.log(`🔌 Arrêt server audio user "${name}"...`);
+      await user.stop();
+    }
+    this.serverAudioUsers.clear();
 
     if (this.groupAudioRouter) {
       this.groupAudioRouter.destroy();
