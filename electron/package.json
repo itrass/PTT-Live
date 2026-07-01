@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "yaml": "^2.9.0"
   }
 }

@@ -302,17 +302,19 @@ async function fetchDevices() {
 }
 
 async function fetchGroups() {
-  const data = await apiCall('/admin/groups');
-  if (!data) return;
-
   const container = document.getElementById('groups-list');
+
+  // Lecture directe depuis config.yaml via IPC (fonctionne sans serveur)
+  const data = await window.electronAPI.groups.list();
 
   if (!data.groups || data.groups.length === 0) {
     container.innerHTML = '<p class="empty-state">Aucun groupe configuré</p>';
     return;
   }
 
-  container.innerHTML = data.groups.map(group => {
+  const serverNote = serverRunning ? '' : '<p class="config-note" style="margin-bottom:1rem">Serveur arrêté — les modifications seront appliquées au prochain démarrage.</p>';
+
+  container.innerHTML = serverNote + data.groups.map(group => {
     const id = slugify(group.name);
     return `
     <div class="group-item">
@@ -358,18 +360,27 @@ async function editGroup(id, currentName, currentBitrate) {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName, audioBitrate: newBitrate })
-    });
+    let ok, errorMsg;
 
-    if (response.ok) {
+    if (serverRunning) {
+      const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName, audioBitrate: newBitrate })
+      });
+      ok = response.ok;
+      if (!ok) errorMsg = (await response.json().catch(() => ({}))).error;
+    } else {
+      const res = await window.electronAPI.groups.update({ id, name: newName, audioBitrate: newBitrate });
+      ok = res.success;
+      errorMsg = res.error;
+    }
+
+    if (ok) {
       showNotification('Groupe modifié', 'success');
       await fetchGroups();
     } else {
-      const err = await response.json().catch(() => ({}));
-      showNotification('Erreur: ' + (err.error || 'Modification échouée'), 'error');
+      showNotification('Erreur: ' + (errorMsg || 'Modification échouée'), 'error');
     }
   } catch (error) {
     console.error('Erreur edit group:', error);
@@ -388,16 +399,23 @@ async function deleteGroup(id, name) {
   if (!confirmed) return;
 
   try {
-    const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
-      method: 'DELETE'
-    });
+    let ok, errorMsg;
 
-    if (response.ok) {
+    if (serverRunning) {
+      const response = await fetch(`${API_BASE}/admin/groups/${id}`, { method: 'DELETE' });
+      ok = response.ok;
+      if (!ok) errorMsg = (await response.json().catch(() => ({}))).error;
+    } else {
+      const res = await window.electronAPI.groups.delete({ id });
+      ok = res.success;
+      errorMsg = res.error;
+    }
+
+    if (ok) {
       showNotification('Groupe supprimé', 'success');
       await fetchGroups();
     } else {
-      const err = await response.json().catch(() => ({}));
-      showNotification('Erreur: ' + (err.error || 'Suppression échouée'), 'error');
+      showNotification('Erreur: ' + (errorMsg || 'Suppression échouée'), 'error');
     }
   } catch (error) {
     console.error('Erreur delete group:', error);
@@ -554,6 +572,12 @@ async function loadInitialData() {
 }
 
 async function loadViewData(view) {
+  // Les groupes sont lisibles même sans serveur (config.yaml direct)
+  if (view === 'groups') {
+    await fetchGroups();
+    return;
+  }
+
   if (!serverRunning) return;
 
   switch (view) {
@@ -565,9 +589,6 @@ async function loadViewData(view) {
     case 'config':
       await fetchDevices();
       await fetchConfig();
-      break;
-    case 'groups':
-      await fetchGroups();
       break;
     case 'monitoring':
       renderVUMeters();
@@ -653,18 +674,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const audioBitrate = parseInt(result.bitrate) || 96;
 
       try {
-        const response = await fetch(`${API_BASE}/admin/groups`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, audioBitrate })
-        });
+        let ok, errorMsg;
 
-        if (response.ok) {
+        if (serverRunning) {
+          const response = await fetch(`${API_BASE}/admin/groups`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, audioBitrate })
+          });
+          ok = response.ok;
+          if (!ok) errorMsg = (await response.json().catch(() => ({}))).error;
+        } else {
+          const res = await window.electronAPI.groups.create({ name, audioBitrate });
+          ok = res.success;
+          errorMsg = res.error;
+        }
+
+        if (ok) {
           showNotification('Groupe créé', 'success');
           await fetchGroups();
         } else {
-          const err = await response.json().catch(() => ({}));
-          showNotification('Erreur: ' + (err.error || 'Création échouée'), 'error');
+          showNotification('Erreur: ' + (errorMsg || 'Création échouée'), 'error');
         }
       } catch (error) {
         console.error('Erreur add group:', error);

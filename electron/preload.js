@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     import: () => ipcRenderer.invoke('config:import')
   },
 
+  // Groupes : lecture/écriture YAML directe (fonctionne sans serveur)
+  groups: {
+    list: () => ipcRenderer.invoke('groups:list'),
+    create: (data) => ipcRenderer.invoke('groups:create', data),
+    update: (data) => ipcRenderer.invoke('groups:update', data),
+    delete: (data) => ipcRenderer.invoke('groups:delete', data)
+  },
+
   // Helpers
   platform: process.platform,
   version: process.env.npm_package_version || '0.3.0'

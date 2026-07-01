@@ -10,7 +10,23 @@ const { spawn } = require('child_process');
 const http = require('http');
 const https = require('https');
 const QRCode = require('qrcode');
+const yaml = require('yaml');
 const setupHelper = require('./setup-helper');
+
+const CONFIG_PATH = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
+
+function readConfig() {
+  return yaml.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+}
+
+function writeConfig(config) {
+  fs.writeFileSync(CONFIG_PATH, yaml.stringify(config), 'utf8');
+}
+
+function slugify(text) {
+  return text.toString().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]+/g, '').replace(/--+/g, '-');
+}
 
 // État de l'application
 let mainWindow = null;
@@ -364,6 +380,60 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('network:ip', async () => {
     return setupHelper.getNetworkIP();
+  });
+
+  // ========== Groupes (lecture/écriture YAML directe, sans serveur) ==========
+
+  ipcMain.handle('groups:list', () => {
+    try {
+      const config = readConfig();
+      return { groups: config.groups || [] };
+    } catch (error) {
+      return { groups: [], error: error.message };
+    }
+  });
+
+  ipcMain.handle('groups:create', (event, { name, audioBitrate }) => {
+    try {
+      const config = readConfig();
+      const id = slugify(name);
+      if ((config.groups || []).find(g => slugify(g.name) === id)) {
+        return { success: false, error: `Un groupe "${name}" existe déjà` };
+      }
+      const group = { name, ...(audioBitrate ? { audioBitrate } : {}) };
+      config.groups = [...(config.groups || []), group];
+      writeConfig(config);
+      return { success: true, group };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('groups:update', (event, { id, name, audioBitrate }) => {
+    try {
+      const config = readConfig();
+      const idx = (config.groups || []).findIndex(g => slugify(g.name) === id);
+      if (idx === -1) return { success: false, error: `Groupe ${id} introuvable` };
+      if (name !== undefined) config.groups[idx].name = name;
+      if (audioBitrate !== undefined) config.groups[idx].audioBitrate = audioBitrate;
+      writeConfig(config);
+      return { success: true, group: config.groups[idx] };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('groups:delete', (event, { id }) => {
+    try {
+      const config = readConfig();
+      const idx = (config.groups || []).findIndex(g => slugify(g.name) === id);
+      if (idx === -1) return { success: false, error: `Groupe ${id} introuvable` };
+      config.groups.splice(idx, 1);
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('config:export', async () => {
