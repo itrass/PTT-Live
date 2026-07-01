@@ -51,6 +51,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     delete: (data) => ipcRenderer.invoke('groups:delete', data)
   },
 
+  // Utilisateurs audio serveur : lecture/écriture YAML directe (fonctionne sans serveur)
+  serverAudioUsers: {
+    list: () => ipcRenderer.invoke('server-audio-users:list'),
+    create: (data) => ipcRenderer.invoke('server-audio-users:create', data),
+    update: (data) => ipcRenderer.invoke('server-audio-users:update', data),
+    delete: (data) => ipcRenderer.invoke('server-audio-users:delete', data)
+  },
+
+  // Routing audio : lecture/écriture YAML directe (fonctionne sans serveur)
+  routing: {
+    get: () => ipcRenderer.invoke('routing:get'),
+    save: (data) => ipcRenderer.invoke('routing:save', data)
+  },
+
   // Helpers
   platform: process.platform,
   version: process.env.npm_package_version || '0.3.0'

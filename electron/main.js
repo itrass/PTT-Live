@@ -436,6 +436,89 @@ app.whenReady().then(async () => {
     }
   });
 
+  // ========== Server Audio Users (lecture/écriture YAML directe) ==========
+
+  ipcMain.handle('server-audio-users:list', () => {
+    try {
+      const config = readConfig();
+      return { users: config.server_audio_users || [] };
+    } catch (error) {
+      return { users: [], error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      if (users.find(u => u.name === name)) {
+        return { success: false, error: `Un utilisateur "${name}" existe déjà` };
+      }
+      const user = { name, group, input_channel: parseInt(input_channel), output_channel: parseInt(output_channel) };
+      config.server_audio_users = [...users, user];
+      writeConfig(config);
+      return { success: true, user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      const idx = users.findIndex(u => u.name === name);
+      if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
+      config.server_audio_users[idx] = { name, group, input_channel: parseInt(input_channel), output_channel: parseInt(output_channel) };
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:delete', (event, { name }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      const idx = users.findIndex(u => u.name === name);
+      if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
+      config.server_audio_users.splice(idx, 1);
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ========== Routing (lecture/écriture YAML directe) ==========
+
+  ipcMain.handle('routing:get', () => {
+    try {
+      const config = readConfig();
+      return {
+        routing: config.audio?.routing || { inputToGroup: {}, groupToOutput: {}, gains: {} },
+        channelNames: config.audio?.channelNames || { inputs: {}, outputs: {} },
+        groups: config.groups || []
+      };
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
+
+  ipcMain.handle('routing:save', (event, { routing, channelNames }) => {
+    try {
+      const config = readConfig();
+      if (!config.audio) config.audio = {};
+      config.audio.routing = routing;
+      config.audio.channelNames = channelNames;
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('config:export', async () => {
     const configPath = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
 
