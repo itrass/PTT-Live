@@ -337,13 +337,21 @@ async function fetchGroups() {
 }
 
 async function editGroup(id, currentName, currentBitrate) {
-  const newName = prompt('Nom du groupe:', currentName);
-  if (newName === null || newName.trim() === '') return;
+  const result = await showModal({
+    title: 'Modifier le groupe',
+    fields: [
+      { name: 'name', label: 'Nom', default: currentName },
+      { name: 'bitrate', label: 'Bitrate (kbps)', type: 'number', default: currentBitrate, min: 32, max: 320, step: 1 }
+    ],
+    confirmLabel: 'Modifier'
+  });
 
-  const newBitrateStr = prompt('Bitrate (kbps, 32-320):', String(currentBitrate));
-  if (newBitrateStr === null) return;
+  if (!result) return;
 
-  const newBitrate = parseInt(newBitrateStr);
+  const newName = result.name.trim();
+  const newBitrate = parseInt(result.bitrate);
+
+  if (!newName) { showNotification('Nom requis', 'error'); return; }
   if (isNaN(newBitrate) || newBitrate < 32 || newBitrate > 320) {
     showNotification('Bitrate invalide (32-320 kbps)', 'error');
     return;
@@ -353,7 +361,7 @@ async function editGroup(id, currentName, currentBitrate) {
     const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName.trim(), audioBitrate: newBitrate })
+      body: JSON.stringify({ name: newName, audioBitrate: newBitrate })
     });
 
     if (response.ok) {
@@ -370,7 +378,14 @@ async function editGroup(id, currentName, currentBitrate) {
 }
 
 async function deleteGroup(id, name) {
-  if (!confirm(`Supprimer le groupe "${name}" ?`)) return;
+  const confirmed = await showModal({
+    title: 'Supprimer le groupe',
+    message: `Supprimer le groupe "${name}" ? Cette action est irréversible.`,
+    confirmLabel: 'Supprimer',
+    confirmClass: 'btn-danger'
+  });
+
+  if (!confirmed) return;
 
   try {
     const response = await fetch(`${API_BASE}/admin/groups/${id}`, {
@@ -623,21 +638,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAddGroup = document.getElementById('btn-add-group');
   if (btnAddGroup) {
     btnAddGroup.addEventListener('click', async () => {
-      const name = prompt('Nom du groupe:');
-      if (!name) return;
+      const result = await showModal({
+        title: 'Nouveau groupe',
+        fields: [
+          { name: 'name', label: 'Nom du groupe' },
+          { name: 'bitrate', label: 'Bitrate (kbps)', type: 'number', default: 96, min: 32, max: 320, step: 1 }
+        ],
+        confirmLabel: 'Créer'
+      });
+
+      if (!result || !result.name.trim()) return;
+
+      const name = result.name.trim();
+      const audioBitrate = parseInt(result.bitrate) || 96;
 
       try {
         const response = await fetch(`${API_BASE}/admin/groups`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, audioBitrate: 96 })
+          body: JSON.stringify({ name, audioBitrate })
         });
 
         if (response.ok) {
           showNotification('Groupe créé', 'success');
           await fetchGroups();
         } else {
-          showNotification('Erreur création groupe', 'error');
+          const err = await response.json().catch(() => ({}));
+          showNotification('Erreur: ' + (err.error || 'Création échouée'), 'error');
         }
       } catch (error) {
         console.error('Erreur add group:', error);
@@ -724,6 +751,82 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== Helpers ==========
+
+/**
+ * Modal générique (remplace prompt/confirm, non supportés dans Electron).
+ * - fields[] → formulaire ; message → confirmation simple
+ * Retourne : objet {champ: valeur} | true (confirm) | null (annulé)
+ */
+function showModal({ title, fields = [], confirmLabel = 'Confirmer', confirmClass = 'btn-primary', message = null }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay');
+    const titleEl = document.getElementById('modal-title');
+    const bodyEl = document.getElementById('modal-body');
+    const cancelBtn = document.getElementById('modal-cancel');
+    const confirmBtn = document.getElementById('modal-confirm');
+
+    titleEl.textContent = title;
+    confirmBtn.textContent = confirmLabel;
+    confirmBtn.className = `btn ${confirmClass}`;
+
+    if (message) {
+      bodyEl.innerHTML = `<p class="modal-message">${escapeHtml(message)}</p>`;
+    } else {
+      bodyEl.innerHTML = fields.map(field => `
+        <div class="form-group">
+          <label>${escapeHtml(field.label)}</label>
+          <input
+            type="${field.type || 'text'}"
+            id="modal-field-${field.name}"
+            class="form-control"
+            value="${escapeHtml(String(field.default ?? ''))}"
+            ${field.min !== undefined ? `min="${field.min}"` : ''}
+            ${field.max !== undefined ? `max="${field.max}"` : ''}
+            ${field.step !== undefined ? `step="${field.step}"` : ''}>
+        </div>
+      `).join('');
+    }
+
+    overlay.classList.remove('hidden');
+
+    const firstInput = bodyEl.querySelector('input');
+    if (firstInput) { firstInput.focus(); firstInput.select(); }
+
+    function cleanup() {
+      overlay.classList.add('hidden');
+      cancelBtn.removeEventListener('click', onCancel);
+      confirmBtn.removeEventListener('click', onConfirm);
+      overlay.removeEventListener('click', onOverlayClick);
+      document.removeEventListener('keydown', onKeydown);
+    }
+
+    function onCancel() { cleanup(); resolve(null); }
+
+    function onConfirm() {
+      if (message) {
+        cleanup(); resolve(true);
+      } else {
+        const result = {};
+        fields.forEach(f => {
+          const input = document.getElementById(`modal-field-${f.name}`);
+          result[f.name] = input ? input.value : '';
+        });
+        cleanup(); resolve(result);
+      }
+    }
+
+    function onOverlayClick(e) { if (e.target === overlay) onCancel(); }
+    function onKeydown(e) {
+      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Enter' && document.activeElement?.tagName !== 'BUTTON') onConfirm();
+    }
+
+    cancelBtn.addEventListener('click', onCancel);
+    confirmBtn.addEventListener('click', onConfirm);
+    overlay.addEventListener('click', onOverlayClick);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
 
 function slugify(text) {
   return text.toString().normalize('NFD').replace(/[̀-ͯ]/g, '')

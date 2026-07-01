@@ -196,6 +196,20 @@
     </main>
   </div>
 
+  <!-- Modal générique -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title"></h3>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modal-cancel">Annuler</button>
+        <button class="btn btn-primary" id="modal-confirm">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Le QR Code est généré côté Main Process (lib qrcode Node), pas de dépendance CDN -->
   <script src="app.js"></script>
 </body>
