@@ -447,14 +447,21 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel }) => {
+  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel, publish }) => {
     try {
       const config = readConfig();
       const users = config.server_audio_users || [];
       if (users.find(u => u.name === name)) {
         return { success: false, error: `Un utilisateur "${name}" existe déjà` };
       }
-      const user = { name, group, input_channel: parseInt(input_channel), output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null };
+      const isPublish = publish !== false;
+      const user = {
+        name,
+        group,
+        publish: isPublish,
+        input_channel: isPublish && input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null,
+        output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null
+      };
       config.server_audio_users = [...users, user];
       writeConfig(config);
       return { success: true, user };
@@ -463,13 +470,20 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel }) => {
+  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel, publish }) => {
     try {
       const config = readConfig();
       const users = config.server_audio_users || [];
       const idx = users.findIndex(u => u.name === name);
       if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
-      config.server_audio_users[idx] = { name, group, input_channel: parseInt(input_channel), output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null };
+      const isPublish = publish !== false;
+      config.server_audio_users[idx] = {
+        name,
+        group,
+        publish: isPublish,
+        input_channel: isPublish && input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null,
+        output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null
+      };
       writeConfig(config);
       return { success: true };
     } catch (error) {

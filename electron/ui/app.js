@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const action = btn.dataset.sauAction;
     const name = btn.dataset.sauName;
     if (action === 'edit') {
-      await editServerAudioUser(name, btn.dataset.sauGroup, parseInt(btn.dataset.sauInput), parseInt(btn.dataset.sauOutput));
+      await editServerAudioUser(name, btn.dataset.sauGroup, btn.dataset.sauInput, btn.dataset.sauOutput, btn.dataset.sauPublish !== 'false');
     } else if (action === 'delete') {
       await deleteServerAudioUser(name);
     }
@@ -834,14 +834,19 @@ function renderServerAudioUsers() {
   container.innerHTML = `
     <table class="sau-table">
       <thead>
-        <tr><th>Nom</th><th>Groupe</th><th>Entrée</th><th>Sortie</th><th></th></tr>
+        <tr><th>Nom</th><th>Groupe</th><th>Mode</th><th>Entrée</th><th>Sortie</th><th></th></tr>
       </thead>
       <tbody>
-        ${users.map(u => `
+        ${users.map(u => {
+          const isListenOnly = u.publish === false;
+          const modeLabel = isListenOnly ? '<span class="ch-badge ch-badge-listen">👂 Écoute</span>' : '<span class="ch-badge ch-badge-active">🎤 Actif</span>';
+          const inputLabel = isListenOnly ? '<span class="ch-badge ch-badge-muted">—</span>' : `<span class="ch-badge">${chLabel(u.input_channel, 'input')}</span>`;
+          return `
           <tr>
             <td class="sau-name">${escapeHtml(u.name)}</td>
             <td><span class="ch-badge ch-badge-group">${escapeHtml(u.group)}</span></td>
-            <td><span class="ch-badge">${chLabel(u.input_channel, 'input')}</span></td>
+            <td>${modeLabel}</td>
+            <td>${inputLabel}</td>
             <td><span class="ch-badge">${chLabel(u.output_channel, 'output')}</span></td>
             <td class="sau-actions">
               <button class="btn btn-small btn-secondary"
@@ -849,12 +854,14 @@ function renderServerAudioUsers() {
                 data-sau-name="${escapeHtml(u.name)}"
                 data-sau-group="${escapeHtml(u.group)}"
                 data-sau-input="${u.input_channel}"
-                data-sau-output="${u.output_channel}">Éditer</button>
+                data-sau-output="${u.output_channel}"
+                data-sau-publish="${u.publish !== false}">Éditer</button>
               <button class="btn btn-small btn-danger"
                 data-sau-action="delete"
                 data-sau-name="${escapeHtml(u.name)}">✕</button>
             </td>
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>`;
 }
@@ -901,6 +908,7 @@ async function addServerAudioUser() {
     fields: [
       { name: 'name', label: 'Nom (identifiant unique, ex: foh)' },
       { name: 'group', label: 'Groupe', type: 'select', options: groupOptions, default: defaultGroup },
+      { name: 'publish', label: 'Publier audio vers le groupe (décocher = écoute seule)', type: 'checkbox', default: true },
       inputField,
       outputField
     ],
@@ -909,10 +917,12 @@ async function addServerAudioUser() {
 
   if (!result || !result.name.trim()) return;
 
+  const publish = result.publish !== false && result.publish !== 'false';
   const res = await window.electronAPI.serverAudioUsers.create({
     name: result.name.trim(),
     group: result.group,
-    input_channel: parseInt(result.input_channel),
+    publish,
+    input_channel: publish ? (result.input_channel !== '' ? parseInt(result.input_channel) : null) : null,
     output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
@@ -924,17 +934,18 @@ async function addServerAudioUser() {
   }
 }
 
-async function editServerAudioUser(name, group, input_channel, output_channel) {
+async function editServerAudioUser(name, group, input_channel, output_channel, publish = true) {
   const groupsData = await window.electronAPI.groups.list();
   const groupOptions = (groupsData.groups || []).map(g => ({ value: slugify(g.name), label: g.name }));
 
   const inOpts = buildChannelOptions('input');
   const outOpts = buildChannelOptions('output');
 
+  const inputDefault = input_channel !== null && input_channel !== undefined && input_channel !== 'null' ? String(input_channel) : '0';
   const inputField = inOpts
-    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: String(input_channel) }
-    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: input_channel, min: 0, max: 63 };
-  const outputDefault = output_channel !== null && output_channel !== undefined ? String(output_channel) : '';
+    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: inputDefault }
+    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: inputDefault, min: 0, max: 63 };
+  const outputDefault = output_channel !== null && output_channel !== undefined && output_channel !== 'null' ? String(output_channel) : '';
   const outputField = outOpts
     ? { name: 'output_channel', label: 'Canal de sortie', type: 'select', options: outOpts, default: outputDefault }
     : { name: 'output_channel', label: 'Canal sortie (index, vide = aucune)', type: 'number', default: outputDefault, min: 0, max: 63 };
@@ -943,6 +954,7 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
     title: `Modifier "${name}"`,
     fields: [
       { name: 'group', label: 'Groupe', type: 'select', options: groupOptions, default: group },
+      { name: 'publish', label: 'Publier audio vers le groupe (décocher = écoute seule)', type: 'checkbox', default: publish },
       inputField,
       outputField
     ],
@@ -951,10 +963,12 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
 
   if (!result) return;
 
+  const newPublish = result.publish !== false && result.publish !== 'false';
   const res = await window.electronAPI.serverAudioUsers.update({
     name,
     group: result.group,
-    input_channel: parseInt(result.input_channel),
+    publish: newPublish,
+    input_channel: newPublish ? (result.input_channel !== '' ? parseInt(result.input_channel) : null) : null,
     output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
@@ -1118,6 +1132,15 @@ function showModal({ title, fields = [], confirmLabel = 'Confirmer', confirmClas
               <select id="modal-field-${field.name}" class="form-control">${optionsHtml}</select>
             </div>`;
         }
+        if (field.type === 'checkbox') {
+          return `
+            <div class="form-group form-group-check">
+              <label class="check-label">
+                <input type="checkbox" id="modal-field-${field.name}" ${field.default !== false ? 'checked' : ''}>
+                ${escapeHtml(field.label)}
+              </label>
+            </div>`;
+        }
         return `
           <div class="form-group">
             <label>${escapeHtml(field.label)}</label>
@@ -1155,7 +1178,8 @@ function showModal({ title, fields = [], confirmLabel = 'Confirmer', confirmClas
         const result = {};
         fields.forEach(f => {
           const input = document.getElementById(`modal-field-${f.name}`);
-          result[f.name] = input ? input.value : '';
+          if (!input) { result[f.name] = ''; return; }
+          result[f.name] = f.type === 'checkbox' ? input.checked : input.value;
         });
         cleanup(); resolve(result);
       }

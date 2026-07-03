@@ -17,10 +17,13 @@ class ServerAudioUser extends EventEmitter {
     super();
 
     this.name = options.name;
-    this.inputChannel = parseInt(options.inputChannel, 10);
+    this.inputChannel = (options.inputChannel !== null && options.inputChannel !== undefined)
+      ? parseInt(options.inputChannel, 10)
+      : null;
     this.outputChannel = (options.outputChannel !== null && options.outputChannel !== undefined)
       ? parseInt(options.outputChannel, 10)
       : null;
+    this.publish = options.publish !== false; // false = écoute seule
     this.groupId = options.groupId;
     this.frameSize = options.frameSize || 960;
     this.sampleRate = options.sampleRate || 48000;
@@ -45,7 +48,8 @@ class ServerAudioUser extends EventEmitter {
 
   _setupClientEvents() {
     this.client.on('connected', () => {
-      console.log(`[ServerAudioUser:${this.name}] Connecté à room "${this.groupId}" (in:${this.inputChannel} → out:${this.outputChannel ?? 'aucune'})`);
+      const mode = this.publish ? `in:${this.inputChannel} → out:${this.outputChannel ?? 'aucune'}` : `écoute → out:${this.outputChannel ?? 'aucune'}`;
+      console.log(`[ServerAudioUser:${this.name}] Connecté à room "${this.groupId}" (${mode})`);
       this.emit('connected');
     });
 
@@ -78,7 +82,7 @@ class ServerAudioUser extends EventEmitter {
    * @param {Float32Array} float32Data - Données PCM normalisées [-1.0, 1.0]
    */
   sendAudio(float32Data) {
-    if (!this.client.isConnected) return;
+    if (!this.publish || !this.client.isConnected) return;
 
     const pcmBuffer = this._float32ToBuffer(float32Data);
     this.client.sendAudioData(pcmBuffer);

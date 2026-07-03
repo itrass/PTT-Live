@@ -1044,6 +1044,47 @@ body {
   font-family: inherit;
 }
 
+.ch-badge-active {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.3);
+  color: #4caf50;
+  font-family: inherit;
+}
+
+.ch-badge-listen {
+  background: rgba(255, 152, 0, 0.12);
+  border-color: rgba(255, 152, 0, 0.3);
+  color: #ff9800;
+  font-family: inherit;
+}
+
+.ch-badge-muted {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.form-group-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.check-label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--accent-primary);
+}
+
 /* Routing actions bar */
 
 .routing-actions {
