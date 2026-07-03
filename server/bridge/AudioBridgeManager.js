@@ -66,10 +66,14 @@ class AudioBridgeManager extends EventEmitter {
           }
         );
 
+        const rawInputChannel = user.input_channel ?? user.inputChannel ?? null;
+        const inputChannel = rawInputChannel !== null && rawInputChannel !== undefined ? rawInputChannel : null;
+        const publish = inputChannel !== null;
+
         token.addGrant({
           room: groupId,
           roomJoin: true,
-          canPublish: true,
+          canPublish: publish,
           canSubscribe: true,
           canPublishData: true
         });
@@ -81,8 +85,9 @@ class AudioBridgeManager extends EventEmitter {
         serverAudioUsers.push({
           name: user.name,
           groupId,
-          inputChannel: user.input_channel ?? user.inputChannel ?? 0,
+          inputChannel,
           outputChannel: outputChannel !== null && outputChannel !== undefined ? outputChannel : null,
+          publish,
           token: jwt
         });
 

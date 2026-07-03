@@ -309,6 +309,7 @@ export class AudioBridge extends EventEmitter {
         groupId: userConfig.groupId,
         inputChannel: userConfig.inputChannel,
         outputChannel: userConfig.outputChannel,
+        publish: userConfig.publish !== false,
         liveKitUrl: this.options.liveKitUrl,
         token: userConfig.token,
         sampleRate: this.options.sampleRate,
@@ -338,7 +339,10 @@ export class AudioBridge extends EventEmitter {
 
       await user.start();
       this.serverAudioUsers.set(userConfig.name, user);
-      console.log(`✓ Server audio user "${userConfig.name}" démarré (entrée canal ${userConfig.inputChannel} → sortie canal ${userConfig.outputChannel}, room: ${userConfig.groupId})`);
+      const modeStr = userConfig.publish !== false
+        ? `canal ${userConfig.inputChannel} → sortie canal ${userConfig.outputChannel ?? 'aucune'}`
+        : `écoute seule → sortie canal ${userConfig.outputChannel ?? 'aucune'}`;
+      console.log(`✓ Server audio user "${userConfig.name}" démarré (${modeStr}, room: ${userConfig.groupId})`);
     }
 
     console.log(`✓ ${this.serverAudioUsers.size} server audio user(s) initialisés`);

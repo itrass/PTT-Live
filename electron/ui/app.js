@@ -803,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const action = btn.dataset.sauAction;
     const name = btn.dataset.sauName;
     if (action === 'edit') {
-      await editServerAudioUser(name, btn.dataset.sauGroup, parseInt(btn.dataset.sauInput), parseInt(btn.dataset.sauOutput));
+      await editServerAudioUser(name, btn.dataset.sauGroup, btn.dataset.sauInput, btn.dataset.sauOutput);
     } else if (action === 'delete') {
       await deleteServerAudioUser(name);
     }
@@ -874,9 +874,7 @@ function buildChannelOptions(dir) {
     label: names[i] ? `Ch ${i}: ${names[i]}` : `Ch ${i}`
   }));
 
-  if (dir === 'output') {
-    opts.unshift({ value: '', label: 'Aucune sortie' });
-  }
+  opts.unshift({ value: '', label: dir === 'input' ? 'Aucune entrée' : 'Aucune sortie' });
 
   return opts;
 }
@@ -890,8 +888,8 @@ async function addServerAudioUser() {
   const outOpts = buildChannelOptions('output');
 
   const inputField = inOpts
-    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: '0' }
-    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: 0, min: 0, max: 63 };
+    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: '' }
+    : { name: 'input_channel', label: 'Canal entrée (index, vide = aucune)', type: 'number', default: '', min: 0, max: 63 };
   const outputField = outOpts
     ? { name: 'output_channel', label: 'Canal de sortie', type: 'select', options: outOpts, default: '' }
     : { name: 'output_channel', label: 'Canal sortie (index, vide = aucune)', type: 'number', default: '', min: 0, max: 63 };
@@ -912,7 +910,7 @@ async function addServerAudioUser() {
   const res = await window.electronAPI.serverAudioUsers.create({
     name: result.name.trim(),
     group: result.group,
-    input_channel: parseInt(result.input_channel),
+    input_channel: result.input_channel !== '' ? parseInt(result.input_channel) : null,
     output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
@@ -931,10 +929,11 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
   const inOpts = buildChannelOptions('input');
   const outOpts = buildChannelOptions('output');
 
+  const inputDefault = input_channel !== null && input_channel !== undefined && input_channel !== 'null' ? String(input_channel) : '';
   const inputField = inOpts
-    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: String(input_channel) }
-    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: input_channel, min: 0, max: 63 };
-  const outputDefault = output_channel !== null && output_channel !== undefined ? String(output_channel) : '';
+    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: inputDefault }
+    : { name: 'input_channel', label: 'Canal entrée (index, vide = aucune)', type: 'number', default: inputDefault, min: 0, max: 63 };
+  const outputDefault = output_channel !== null && output_channel !== undefined && output_channel !== 'null' ? String(output_channel) : '';
   const outputField = outOpts
     ? { name: 'output_channel', label: 'Canal de sortie', type: 'select', options: outOpts, default: outputDefault }
     : { name: 'output_channel', label: 'Canal sortie (index, vide = aucune)', type: 'number', default: outputDefault, min: 0, max: 63 };
@@ -954,7 +953,7 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
   const res = await window.electronAPI.serverAudioUsers.update({
     name,
     group: result.group,
-    input_channel: parseInt(result.input_channel),
+    input_channel: result.input_channel !== '' ? parseInt(result.input_channel) : null,
     output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
@@ -1118,6 +1117,15 @@ function showModal({ title, fields = [], confirmLabel = 'Confirmer', confirmClas
               <select id="modal-field-${field.name}" class="form-control">${optionsHtml}</select>
             </div>`;
         }
+        if (field.type === 'checkbox') {
+          return `
+            <div class="form-group form-group-check">
+              <label class="check-label">
+                <input type="checkbox" id="modal-field-${field.name}" ${field.default !== false ? 'checked' : ''}>
+                ${escapeHtml(field.label)}
+              </label>
+            </div>`;
+        }
         return `
           <div class="form-group">
             <label>${escapeHtml(field.label)}</label>
@@ -1155,7 +1163,8 @@ function showModal({ title, fields = [], confirmLabel = 'Confirmer', confirmClas
         const result = {};
         fields.forEach(f => {
           const input = document.getElementById(`modal-field-${f.name}`);
-          result[f.name] = input ? input.value : '';
+          if (!input) { result[f.name] = ''; return; }
+          result[f.name] = f.type === 'checkbox' ? input.checked : input.value;
         });
         cleanup(); resolve(result);
       }
