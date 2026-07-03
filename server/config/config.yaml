@@ -6,39 +6,22 @@ audio:
   jitterBufferMs: 40
   device:
     inputDeviceId: Loopback Audio 4
-    outputDeviceId: Haut-parleurs MacBook Pro
+    outputDeviceId: Périphérique agrégé
     sampleRate: 48000
-  routing:
-    inputToGroup:
-      "0":
-        - default
-      "1": []
-      "2": []
-      "4":
-        - technique
-      "5":
-        - technique
-    groupToOutput:
-      technique:
-        - "1"
-      production:
-        - "0"
-        - "1"
-      default:
-        - "0"
-    gains: {}
   channelNames:
     inputs:
-      "0": Mac
-      "1": Talkback FOH
-      "2": Retour Console
-      "3": Liaison Scène
-      "4": Monitor Mix
-      "5": Spare 1
+      "0": Loopback L
+      "1": Loopback R
     outputs:
-      "0": L
-      "1": R
-      "2": Talkback Console
+      "0": Casque L
+      "1": Casque R
+      "2": Mac L
+      "3": Mac R
+server_audio_users:
+  - name: Utilisateur Serveur
+    group: default
+    input_channel: 0
+    output_channel: 0
 groups:
   - name: Default
     audioBitrate: 96

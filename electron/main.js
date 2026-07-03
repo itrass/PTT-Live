@@ -436,6 +436,129 @@ app.whenReady().then(async () => {
     }
   });
 
+  // ========== Server Audio Users (lecture/écriture YAML directe) ==========
+
+  ipcMain.handle('server-audio-users:list', () => {
+    try {
+      const config = readConfig();
+      return { users: config.server_audio_users || [] };
+    } catch (error) {
+      return { users: [], error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      if (users.find(u => u.name === name)) {
+        return { success: false, error: `Un utilisateur "${name}" existe déjà` };
+      }
+      const user = { name, group, input_channel: parseInt(input_channel), output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null };
+      config.server_audio_users = [...users, user];
+      writeConfig(config);
+      return { success: true, user };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      const idx = users.findIndex(u => u.name === name);
+      if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
+      config.server_audio_users[idx] = { name, group, input_channel: parseInt(input_channel), output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null };
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('server-audio-users:delete', (event, { name }) => {
+    try {
+      const config = readConfig();
+      const users = config.server_audio_users || [];
+      const idx = users.findIndex(u => u.name === name);
+      if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
+      config.server_audio_users.splice(idx, 1);
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ========== Routing (lecture/écriture YAML directe) ==========
+
+  ipcMain.handle('routing:get', () => {
+    try {
+      const config = readConfig();
+      return {
+        channelNames: config.audio?.channelNames || { inputs: {}, outputs: {} },
+        groups: config.groups || [],
+        serverAudioUsers: config.server_audio_users || []
+      };
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
+
+  // ========== Devices : découverte canaux physiques ==========
+
+  ipcMain.handle('devices:getChannels', () => {
+    try {
+      const config = readConfig();
+      const inputDeviceName = config.audio?.device?.inputDeviceId;
+      const outputDeviceName = config.audio?.device?.outputDeviceId;
+
+      let inputDevice = { name: inputDeviceName || 'Non configuré', channels: 0 };
+      let outputDevice = { name: outputDeviceName || 'Non configuré', channels: 0 };
+
+      if (process.platform === 'darwin') {
+        try {
+          const { execSync } = require('child_process');
+          const raw = execSync('system_profiler SPAudioDataType -json', { encoding: 'utf8', timeout: 5000 });
+          const data = JSON.parse(raw);
+
+          if (data.SPAudioDataType) {
+            data.SPAudioDataType.forEach(item => {
+              (item._items || []).forEach(dev => {
+                const name = dev._name || '';
+                const inCh = parseInt(dev.coreaudio_device_input) || 0;
+                const outCh = parseInt(dev.coreaudio_device_output) || 0;
+                if (inputDeviceName && name === inputDeviceName && inCh > 0) {
+                  inputDevice = { name, channels: inCh };
+                }
+                if (outputDeviceName && name === outputDeviceName && outCh > 0) {
+                  outputDevice = { name, channels: outCh };
+                }
+              });
+            });
+          }
+        } catch (_) { /* detection failed, keep defaults */ }
+      }
+
+      return { inputDevice, outputDevice };
+    } catch (error) {
+      return { error: error.message, inputDevice: { name: 'Inconnu', channels: 0 }, outputDevice: { name: 'Inconnu', channels: 0 } };
+    }
+  });
+
+  ipcMain.handle('routing:save', (event, { channelNames }) => {
+    try {
+      const config = readConfig();
+      if (!config.audio) config.audio = {};
+      config.audio.channelNames = channelNames;
+      writeConfig(config);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('config:export', async () => {
     const configPath = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
 

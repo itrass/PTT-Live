@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import './Admin.css';
-import AudioRoutingMatrix from './components/AudioRoutingMatrix';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -409,9 +408,6 @@ function Admin() {
                     </label>
                   </div>
 
-                  <p style={{color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginTop: 'var(--spacing-md)'}}>
-                    Le routing audio se configure dans l'onglet "Audio" via la matrice de routing.
-                  </p>
 
                   <div className="form-actions">
                     <button type="submit" className="btn-primary">
@@ -609,7 +605,6 @@ function Admin() {
                 </div>
               </div>
 
-              <AudioRoutingMatrix groups={groups} channelNames={channelNames} />
 
               {currentDevice && currentDevice.inputDeviceId && (
                 <div className="current-config">

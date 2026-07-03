@@ -529,66 +529,6 @@ router.put('/audio/channels/names', (req, res) => {
   }
 });
 
-/**
- * GET /admin/audio/routing
- * Récupère la configuration de routing actuelle
- * Format: { inputToGroup: { "0": ["production"], "1": ["technique"] }, groupToOutput: { "production": ["0", "1"] } }
- */
-router.get('/audio/routing', (req, res) => {
-  try {
-    const config = configManager.get();
-    const routing = config.audio?.routing || { inputToGroup: {}, groupToOutput: {}, gains: {} };
-
-    res.json({
-      routing
-    });
-  } catch (error) {
-    console.error('Erreur GET /admin/audio/routing:', error);
-    res.status(500).json({ error: 'Failed to load routing' });
-  }
-});
-
-/**
- * POST /audio/routing
- * Sauvegarde la configuration de routing
- * Body: { inputToGroup: {...}, groupToOutput: {...}, gains: {...} }
- */
-router.post('/audio/routing', (req, res) => {
-  try {
-    const { inputToGroup, groupToOutput, gains } = req.body;
-
-    const config = configManager.get();
-
-    if (!config.audio.routing) {
-      config.audio.routing = { inputToGroup: {}, groupToOutput: {}, gains: {} };
-    }
-
-    if (inputToGroup !== undefined) {
-      config.audio.routing.inputToGroup = inputToGroup;
-    }
-
-    if (groupToOutput !== undefined) {
-      config.audio.routing.groupToOutput = groupToOutput;
-    }
-
-    if (gains !== undefined) {
-      config.audio.routing.gains = gains;
-    }
-
-    configManager.save(config);
-
-    addLog('info', 'Audio routing updated');
-
-    res.json({
-      message: 'Audio routing updated',
-      routing: config.audio.routing
-    });
-
-  } catch (error) {
-    console.error('Erreur POST /admin/audio/routing:', error);
-    res.status(500).json({ error: 'Failed to update routing' });
-  }
-});
 
 /**
  * POST /admin/audio/device
