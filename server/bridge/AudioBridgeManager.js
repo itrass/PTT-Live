@@ -66,7 +66,9 @@ class AudioBridgeManager extends EventEmitter {
           }
         );
 
-        const publish = user.publish !== false;
+        const rawInputChannel = user.input_channel ?? user.inputChannel ?? null;
+        const inputChannel = rawInputChannel !== null && rawInputChannel !== undefined ? rawInputChannel : null;
+        const publish = inputChannel !== null;
 
         token.addGrant({
           room: groupId,
@@ -79,12 +81,11 @@ class AudioBridgeManager extends EventEmitter {
         const jwt = await token.toJwt();
 
         const outputChannel = user.output_channel ?? user.outputChannel;
-        const rawInputChannel = user.input_channel ?? user.inputChannel;
 
         serverAudioUsers.push({
           name: user.name,
           groupId,
-          inputChannel: rawInputChannel !== null && rawInputChannel !== undefined ? rawInputChannel : null,
+          inputChannel,
           outputChannel: outputChannel !== null && outputChannel !== undefined ? outputChannel : null,
           publish,
           token: jwt

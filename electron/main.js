@@ -447,19 +447,18 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel, publish }) => {
+  ipcMain.handle('server-audio-users:create', (event, { name, group, input_channel, output_channel }) => {
     try {
       const config = readConfig();
       const users = config.server_audio_users || [];
       if (users.find(u => u.name === name)) {
         return { success: false, error: `Un utilisateur "${name}" existe déjà` };
       }
-      const isPublish = publish !== false;
+      const parsedInput = input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null;
       const user = {
         name,
         group,
-        publish: isPublish,
-        input_channel: isPublish && input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null,
+        input_channel: parsedInput,
         output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null
       };
       config.server_audio_users = [...users, user];
@@ -470,18 +469,17 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel, publish }) => {
+  ipcMain.handle('server-audio-users:update', (event, { name, group, input_channel, output_channel }) => {
     try {
       const config = readConfig();
       const users = config.server_audio_users || [];
       const idx = users.findIndex(u => u.name === name);
       if (idx === -1) return { success: false, error: `Utilisateur "${name}" introuvable` };
-      const isPublish = publish !== false;
+      const parsedInput = input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null;
       config.server_audio_users[idx] = {
         name,
         group,
-        publish: isPublish,
-        input_channel: isPublish && input_channel !== null && input_channel !== undefined ? parseInt(input_channel) : null,
+        input_channel: parsedInput,
         output_channel: output_channel !== null && output_channel !== '' ? parseInt(output_channel) : null
       };
       writeConfig(config);

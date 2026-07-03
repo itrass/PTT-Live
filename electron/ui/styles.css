@@ -1044,24 +1044,6 @@ body {
   font-family: inherit;
 }
 
-.ch-badge-active {
-  background: rgba(76, 175, 80, 0.12);
-  border-color: rgba(76, 175, 80, 0.3);
-  color: #4caf50;
-  font-family: inherit;
-}
-
-.ch-badge-listen {
-  background: rgba(255, 152, 0, 0.12);
-  border-color: rgba(255, 152, 0, 0.3);
-  color: #ff9800;
-  font-family: inherit;
-}
-
-.ch-badge-muted {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
 
 .form-group-check {
   display: flex;
