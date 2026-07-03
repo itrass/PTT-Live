@@ -10,6 +10,7 @@ let statsInterval = null;
 let logsBuffer = [];
 let audioLevelsWS = null;
 let routingData = null;
+let deviceChannels = null;
 let audioLevelsData = {
   inputs: {},
   groups: {},
@@ -585,7 +586,6 @@ async function loadViewData(view) {
   }
 
   if (view === 'config') {
-    await fetchServerAudioUsers();
     if (serverRunning) {
       await fetchDevices();
       await fetchConfig();
@@ -790,94 +790,119 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bouton ajouter utilisateur audio serveur
-  const btnAddSAU = document.getElementById('btn-add-server-audio-user');
-  if (btnAddSAU) {
-    btnAddSAU.addEventListener('click', addServerAudioUser);
-  }
-
-  // Délégation modifier/supprimer utilisateur audio serveur
-  const sauList = document.getElementById('server-audio-users-list');
-  if (sauList) {
-    sauList.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-sau-action]');
-      if (!btn) return;
-      const action = btn.dataset.sauAction;
-      const name = btn.dataset.sauName;
-      if (action === 'edit') {
-        await editServerAudioUser(name, btn.dataset.sauGroup, parseInt(btn.dataset.sauInput), parseInt(btn.dataset.sauOutput));
-      } else if (action === 'delete') {
-        await deleteServerAudioUser(name);
-      }
-    });
-  }
-
   // Boutons routing
   document.getElementById('btn-save-routing')?.addEventListener('click', saveRouting);
   document.getElementById('btn-reload-routing')?.addEventListener('click', fetchRouting);
-  document.getElementById('btn-add-input-channel')?.addEventListener('click', () => addChannelRow('input'));
-  document.getElementById('btn-add-output-channel')?.addEventListener('click', () => addChannelRow('output'));
+  document.getElementById('btn-refresh-channels')?.addEventListener('click', fetchRouting);
+  document.getElementById('btn-add-server-audio-user')?.addEventListener('click', addServerAudioUser);
 
-  // Délégation suppression lignes canal (boutons ✕)
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('.channel-name-delete');
+  // Délégation modifier/supprimer participant serveur
+  document.getElementById('server-audio-users-list')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-sau-action]');
     if (!btn) return;
-    deleteChannelRow(btn.dataset.dir, btn.dataset.channel);
+    const action = btn.dataset.sauAction;
+    const name = btn.dataset.sauName;
+    if (action === 'edit') {
+      await editServerAudioUser(name, btn.dataset.sauGroup, parseInt(btn.dataset.sauInput), parseInt(btn.dataset.sauOutput));
+    } else if (action === 'delete') {
+      await deleteServerAudioUser(name);
+    }
   });
 });
 
-// ========== Server Audio Users ==========
+// ========== Server Audio Users (dans la vue Routing) ==========
 
-async function fetchServerAudioUsers() {
+function renderServerAudioUsers() {
   const container = document.getElementById('server-audio-users-list');
   if (!container) return;
 
-  const data = await window.electronAPI.serverAudioUsers.list();
+  const users = routingData?.serverAudioUsers || [];
+  const inputs = routingData?.channelNames?.inputs || {};
+  const outputs = routingData?.channelNames?.outputs || {};
 
-  const serverNote = serverRunning ? '' :
-    '<p class="config-note" style="margin-bottom:1rem">Serveur arrêté — les modifications seront appliquées au prochain démarrage.</p>';
+  const chLabel = (ch, dir) => {
+    if (ch === null || ch === undefined) return 'Aucune';
+    const name = dir === 'input' ? inputs[ch] : outputs[ch];
+    return name ? `Ch ${ch} · ${name}` : `Ch ${ch}`;
+  };
 
-  if (!data.users || data.users.length === 0) {
-    container.innerHTML = serverNote + '<p class="empty-state">Aucun utilisateur audio serveur configuré</p>';
+  if (users.length === 0) {
+    container.innerHTML = '<p class="empty-state" style="margin-top:1rem">Aucun participant serveur configuré</p>';
     return;
   }
 
-  container.innerHTML = serverNote + data.users.map(user => `
-    <div class="group-item">
-      <div class="group-info">
-        <h4>${escapeHtml(user.name)}</h4>
-        <p>Groupe: <strong>${escapeHtml(user.group)}</strong> · Entrée: canal ${user.input_channel} · Sortie: canal ${user.output_channel}</p>
-      </div>
-      <div class="group-actions">
-        <button class="btn btn-small btn-secondary"
-          data-sau-action="edit"
-          data-sau-name="${escapeHtml(user.name)}"
-          data-sau-group="${escapeHtml(user.group)}"
-          data-sau-input="${user.input_channel}"
-          data-sau-output="${user.output_channel}">Modifier</button>
-        <button class="btn btn-small btn-danger"
-          data-sau-action="delete"
-          data-sau-name="${escapeHtml(user.name)}">Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+  container.innerHTML = `
+    <table class="sau-table">
+      <thead>
+        <tr><th>Nom</th><th>Groupe</th><th>Entrée</th><th>Sortie</th><th></th></tr>
+      </thead>
+      <tbody>
+        ${users.map(u => `
+          <tr>
+            <td class="sau-name">${escapeHtml(u.name)}</td>
+            <td><span class="ch-badge ch-badge-group">${escapeHtml(u.group)}</span></td>
+            <td><span class="ch-badge">${chLabel(u.input_channel, 'input')}</span></td>
+            <td><span class="ch-badge">${chLabel(u.output_channel, 'output')}</span></td>
+            <td class="sau-actions">
+              <button class="btn btn-small btn-secondary"
+                data-sau-action="edit"
+                data-sau-name="${escapeHtml(u.name)}"
+                data-sau-group="${escapeHtml(u.group)}"
+                data-sau-input="${u.input_channel}"
+                data-sau-output="${u.output_channel}">Éditer</button>
+              <button class="btn btn-small btn-danger"
+                data-sau-action="delete"
+                data-sau-name="${escapeHtml(u.name)}">✕</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function buildChannelOptions(dir) {
+  const channels = dir === 'input'
+    ? routingData?.deviceChannels?.inputDevice?.channels || 0
+    : routingData?.deviceChannels?.outputDevice?.channels || 0;
+  const names = dir === 'input'
+    ? routingData?.channelNames?.inputs || {}
+    : routingData?.channelNames?.outputs || {};
+
+  if (channels === 0) return null; // fallback to number input
+
+  const opts = Array.from({ length: channels }, (_, i) => ({
+    value: String(i),
+    label: names[i] ? `Ch ${i}: ${names[i]}` : `Ch ${i}`
+  }));
+
+  if (dir === 'output') {
+    opts.unshift({ value: '', label: 'Aucune sortie' });
+  }
+
+  return opts;
 }
 
 async function addServerAudioUser() {
   const groupsData = await window.electronAPI.groups.list();
-  const groupOptions = (groupsData.groups || []).map(g => ({
-    value: slugify(g.name),
-    label: g.name
-  }));
+  const groupOptions = (groupsData.groups || []).map(g => ({ value: slugify(g.name), label: g.name }));
   const defaultGroup = groupOptions[0]?.value || 'default';
 
+  const inOpts = buildChannelOptions('input');
+  const outOpts = buildChannelOptions('output');
+
+  const inputField = inOpts
+    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: '0' }
+    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: 0, min: 0, max: 63 };
+  const outputField = outOpts
+    ? { name: 'output_channel', label: 'Canal de sortie', type: 'select', options: outOpts, default: '' }
+    : { name: 'output_channel', label: 'Canal sortie (index, vide = aucune)', type: 'number', default: '', min: 0, max: 63 };
+
   const result = await showModal({
-    title: 'Nouvel utilisateur audio serveur',
+    title: 'Nouveau participant serveur',
     fields: [
       { name: 'name', label: 'Nom (identifiant unique, ex: foh)' },
       { name: 'group', label: 'Groupe', type: 'select', options: groupOptions, default: defaultGroup },
-      { name: 'input_channel', label: 'Canal entrée (index physique)', type: 'number', default: 0, min: 0, max: 63, step: 1 },
-      { name: 'output_channel', label: 'Canal sortie (index physique)', type: 'number', default: 0, min: 0, max: 63, step: 1 }
+      inputField,
+      outputField
     ],
     confirmLabel: 'Ajouter'
   });
@@ -888,12 +913,12 @@ async function addServerAudioUser() {
     name: result.name.trim(),
     group: result.group,
     input_channel: parseInt(result.input_channel),
-    output_channel: parseInt(result.output_channel)
+    output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
   if (res.success) {
-    showNotification('Utilisateur audio serveur ajouté', 'success');
-    await fetchServerAudioUsers();
+    showNotification('Participant serveur ajouté', 'success');
+    await fetchRouting();
   } else {
     showNotification('Erreur: ' + (res.error || 'Création échouée'), 'error');
   }
@@ -901,17 +926,25 @@ async function addServerAudioUser() {
 
 async function editServerAudioUser(name, group, input_channel, output_channel) {
   const groupsData = await window.electronAPI.groups.list();
-  const groupOptions = (groupsData.groups || []).map(g => ({
-    value: slugify(g.name),
-    label: g.name
-  }));
+  const groupOptions = (groupsData.groups || []).map(g => ({ value: slugify(g.name), label: g.name }));
+
+  const inOpts = buildChannelOptions('input');
+  const outOpts = buildChannelOptions('output');
+
+  const inputField = inOpts
+    ? { name: 'input_channel', label: 'Canal d\'entrée', type: 'select', options: inOpts, default: String(input_channel) }
+    : { name: 'input_channel', label: 'Canal entrée (index)', type: 'number', default: input_channel, min: 0, max: 63 };
+  const outputDefault = output_channel !== null && output_channel !== undefined ? String(output_channel) : '';
+  const outputField = outOpts
+    ? { name: 'output_channel', label: 'Canal de sortie', type: 'select', options: outOpts, default: outputDefault }
+    : { name: 'output_channel', label: 'Canal sortie (index, vide = aucune)', type: 'number', default: outputDefault, min: 0, max: 63 };
 
   const result = await showModal({
     title: `Modifier "${name}"`,
     fields: [
       { name: 'group', label: 'Groupe', type: 'select', options: groupOptions, default: group },
-      { name: 'input_channel', label: 'Canal entrée (index physique)', type: 'number', default: input_channel, min: 0, max: 63, step: 1 },
-      { name: 'output_channel', label: 'Canal sortie (index physique)', type: 'number', default: output_channel, min: 0, max: 63, step: 1 }
+      inputField,
+      outputField
     ],
     confirmLabel: 'Modifier'
   });
@@ -922,12 +955,12 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
     name,
     group: result.group,
     input_channel: parseInt(result.input_channel),
-    output_channel: parseInt(result.output_channel)
+    output_channel: result.output_channel !== '' ? parseInt(result.output_channel) : null
   });
 
   if (res.success) {
-    showNotification('Utilisateur audio serveur modifié', 'success');
-    await fetchServerAudioUsers();
+    showNotification('Participant serveur modifié', 'success');
+    await fetchRouting();
   } else {
     showNotification('Erreur: ' + (res.error || 'Modification échouée'), 'error');
   }
@@ -935,7 +968,7 @@ async function editServerAudioUser(name, group, input_channel, output_channel) {
 
 async function deleteServerAudioUser(name) {
   const confirmed = await showModal({
-    title: 'Supprimer l\'utilisateur audio serveur',
+    title: 'Supprimer le participant serveur',
     message: `Supprimer "${name}" ? Cette action est irréversible.`,
     confirmLabel: 'Supprimer',
     confirmClass: 'btn-danger'
@@ -946,8 +979,8 @@ async function deleteServerAudioUser(name) {
   const res = await window.electronAPI.serverAudioUsers.delete({ name });
 
   if (res.success) {
-    showNotification('Utilisateur audio serveur supprimé', 'success');
-    await fetchServerAudioUsers();
+    showNotification('Participant serveur supprimé', 'success');
+    await fetchRouting();
   } else {
     showNotification('Erreur: ' + (res.error || 'Suppression échouée'), 'error');
   }
@@ -956,161 +989,83 @@ async function deleteServerAudioUser(name) {
 // ========== Routing ==========
 
 async function fetchRouting() {
-  const data = await window.electronAPI.routing.get();
-  if (data.error) {
-    showNotification('Erreur chargement routing: ' + data.error, 'error');
+  const [routingResult, devResult] = await Promise.all([
+    window.electronAPI.routing.get(),
+    window.electronAPI.devices.getChannels()
+  ]);
+
+  if (routingResult.error) {
+    showNotification('Erreur chargement routing: ' + routingResult.error, 'error');
     return;
   }
-  routingData = data;
+
+  deviceChannels = devResult;
+  routingData = { ...routingResult, deviceChannels: devResult };
   renderRoutingView();
 }
 
 function renderRoutingView() {
   if (!routingData) return;
-  renderChannelNamesEditor();
-  renderRoutingMatrices();
+  renderDeviceBanner();
+  renderChannelLabels();
+  renderServerAudioUsers();
 }
 
-function renderChannelNamesEditor() {
-  const { channelNames } = routingData;
+function renderDeviceBanner() {
+  const el = document.getElementById('routing-device-info');
+  if (!el) return;
+
+  const dc = routingData.deviceChannels;
+  if (!dc || dc.error || (dc.inputDevice?.channels === 0 && dc.outputDevice?.channels === 0)) {
+    el.innerHTML = `<span class="device-unset">Aucun device configuré — sélectionnez une carte son dans <strong>Configuration</strong></span>`;
+    return;
+  }
+
+  const { inputDevice, outputDevice } = dc;
+  el.innerHTML = `
+    <span class="device-entry"><strong>Entrée :</strong> ${escapeHtml(inputDevice.name)}
+      <span class="device-ch-badge">${inputDevice.channels} ch</span></span>
+    <span class="device-sep">·</span>
+    <span class="device-entry"><strong>Sortie :</strong> ${escapeHtml(outputDevice.name)}
+      <span class="device-ch-badge">${outputDevice.channels} ch</span></span>`;
+}
+
+function renderChannelLabels() {
+  const { channelNames, deviceChannels: dc } = routingData;
   const inputs = channelNames?.inputs || {};
   const outputs = channelNames?.outputs || {};
+  const inputCount = dc?.inputDevice?.channels || 0;
+  const outputCount = dc?.outputDevice?.channels || 0;
 
-  const inputChannels = Object.keys(inputs).sort((a, b) => parseInt(a) - parseInt(b));
-  const outputChannels = Object.keys(outputs).sort((a, b) => parseInt(a) - parseInt(b));
+  const inputsEl = document.getElementById('channel-names-inputs');
+  const outputsEl = document.getElementById('channel-names-outputs');
 
-  const inputsContainer = document.getElementById('channel-names-inputs');
-  const outputsContainer = document.getElementById('channel-names-outputs');
-
-  if (inputsContainer) {
-    inputsContainer.innerHTML = inputChannels.length > 0
-      ? inputChannels.map(ch => channelNameRow('input', ch, inputs[ch] || '')).join('')
-      : '<p class="config-note">Aucun canal d\'entrée défini.</p>';
+  if (inputsEl) {
+    inputsEl.innerHTML = inputCount > 0
+      ? Array.from({ length: inputCount }, (_, i) => channelLabelRow('input', i, inputs[i] || '')).join('')
+      : '<p class="config-note">Aucun device d\'entrée détecté.</p>';
   }
 
-  if (outputsContainer) {
-    outputsContainer.innerHTML = outputChannels.length > 0
-      ? outputChannels.map(ch => channelNameRow('output', ch, outputs[ch] || '')).join('')
-      : '<p class="config-note">Aucun canal de sortie défini.</p>';
+  if (outputsEl) {
+    outputsEl.innerHTML = outputCount > 0
+      ? Array.from({ length: outputCount }, (_, i) => channelLabelRow('output', i, outputs[i] || '')).join('')
+      : '<p class="config-note">Aucun device de sortie détecté.</p>';
   }
 }
 
-function channelNameRow(dir, ch, name) {
+function channelLabelRow(dir, ch, name) {
   return `
     <div class="channel-name-row" data-channel="${ch}" data-dir="${dir}">
-      <span class="channel-index">Canal ${ch}</span>
+      <span class="channel-index">Ch ${ch}</span>
       <input type="text" class="form-control form-control-small channel-name-input"
              data-dir="${dir}" data-channel="${ch}"
-             value="${escapeHtml(name)}" placeholder="Nom du canal">
-      <button class="btn btn-small btn-danger channel-name-delete" data-dir="${dir}" data-channel="${ch}">✕</button>
+             value="${escapeHtml(name)}" placeholder="Label canal ${ch}">
     </div>`;
-}
-
-function addChannelRow(dir) {
-  const containerId = dir === 'input' ? 'channel-names-inputs' : 'channel-names-outputs';
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  // Retirer le message "Aucun canal" si présent
-  const emptyMsg = container.querySelector('.config-note');
-  if (emptyMsg) emptyMsg.remove();
-
-  const existing = Array.from(container.querySelectorAll('.channel-name-row'))
-    .map(r => parseInt(r.dataset.channel))
-    .filter(n => !isNaN(n));
-  const nextCh = existing.length > 0 ? Math.max(...existing) + 1 : 0;
-
-  const row = document.createElement('div');
-  row.innerHTML = channelNameRow(dir, nextCh, '');
-  const newRow = row.firstElementChild;
-  container.appendChild(newRow);
-  newRow.querySelector('input')?.focus();
-}
-
-function deleteChannelRow(dir, channel) {
-  const containerId = dir === 'input' ? 'channel-names-inputs' : 'channel-names-outputs';
-  const container = document.getElementById(containerId);
-  const row = container?.querySelector(`.channel-name-row[data-channel="${channel}"][data-dir="${dir}"]`);
-  if (!row) return;
-  row.remove();
-  if (!container.querySelector('.channel-name-row')) {
-    container.innerHTML = `<p class="config-note">Aucun canal de ${dir === 'input' ? 'entrée' : 'sortie'} défini.</p>`;
-  }
-}
-
-function renderRoutingMatrices() {
-  const { routing, channelNames, groups } = routingData;
-  const inputs = channelNames?.inputs || {};
-  const outputs = channelNames?.outputs || {};
-  const inputToGroup = routing?.inputToGroup || {};
-  const groupToOutput = routing?.groupToOutput || {};
-
-  const inputChannels = Object.keys(inputs).sort((a, b) => parseInt(a) - parseInt(b));
-  const outputChannels = Object.keys(outputs).sort((a, b) => parseInt(a) - parseInt(b));
-
-  // Matrice Entrées → Groupes
-  const inputMatrixEl = document.getElementById('routing-input-matrix');
-  if (inputMatrixEl) {
-    if (inputChannels.length === 0 || groups.length === 0) {
-      inputMatrixEl.innerHTML = '<p class="empty-state">Définissez des canaux d\'entrée et des groupes pour configurer le routing.</p>';
-    } else {
-      let html = '<div class="routing-matrix-scroll"><table class="routing-matrix"><thead><tr>';
-      html += '<th class="matrix-label-cell">Canal Entrée</th>';
-      groups.forEach(g => { html += `<th class="matrix-group-header">${escapeHtml(g.name)}</th>`; });
-      html += '</tr></thead><tbody>';
-
-      inputChannels.forEach(ch => {
-        const chGroups = inputToGroup[ch] || [];
-        html += '<tr>';
-        html += `<td class="matrix-channel-label"><span class="ch-index">${ch}</span><span class="ch-name">${escapeHtml(inputs[ch] || `Canal ${ch}`)}</span></td>`;
-        groups.forEach(g => {
-          const gId = slugify(g.name);
-          const checked = chGroups.includes(gId) ? 'checked' : '';
-          html += `<td class="matrix-cell"><input type="checkbox" class="routing-check" data-direction="input" data-channel="${ch}" data-group="${gId}" ${checked}></td>`;
-        });
-        html += '</tr>';
-      });
-
-      html += '</tbody></table></div>';
-      inputMatrixEl.innerHTML = html;
-    }
-  }
-
-  // Matrice Groupes → Sorties
-  const outputMatrixEl = document.getElementById('routing-output-matrix');
-  if (outputMatrixEl) {
-    if (groups.length === 0 || outputChannels.length === 0) {
-      outputMatrixEl.innerHTML = '<p class="empty-state">Définissez des canaux de sortie et des groupes pour configurer le routing.</p>';
-    } else {
-      let html = '<div class="routing-matrix-scroll"><table class="routing-matrix"><thead><tr>';
-      html += '<th class="matrix-label-cell">Groupe</th>';
-      outputChannels.forEach(ch => {
-        html += `<th class="matrix-group-header"><span class="ch-index">${ch}</span><br><span class="ch-name">${escapeHtml(outputs[ch] || `Canal ${ch}`)}</span></th>`;
-      });
-      html += '</tr></thead><tbody>';
-
-      groups.forEach(g => {
-        const gId = slugify(g.name);
-        const gOutputs = groupToOutput[gId] || [];
-        html += '<tr>';
-        html += `<td class="matrix-channel-label">${escapeHtml(g.name)}</td>`;
-        outputChannels.forEach(ch => {
-          const checked = gOutputs.includes(ch) ? 'checked' : '';
-          html += `<td class="matrix-cell"><input type="checkbox" class="routing-check" data-direction="output" data-channel="${ch}" data-group="${gId}" ${checked}></td>`;
-        });
-        html += '</tr>';
-      });
-
-      html += '</tbody></table></div>';
-      outputMatrixEl.innerHTML = html;
-    }
-  }
 }
 
 async function saveRouting() {
   if (!routingData) return;
 
-  // Collecter les noms de canaux depuis le DOM
   const newChannelNames = { inputs: {}, outputs: {} };
   document.querySelectorAll('.channel-name-input[data-dir="input"]').forEach(el => {
     newChannelNames.inputs[el.dataset.channel] = el.value;
@@ -1119,37 +1074,12 @@ async function saveRouting() {
     newChannelNames.outputs[el.dataset.channel] = el.value;
   });
 
-  // Collecter le routing depuis les checkboxes
-  const newInputToGroup = {};
-  const newGroupToOutput = {};
-
-  document.querySelectorAll('.routing-check[data-direction="input"]:checked').forEach(cb => {
-    const ch = cb.dataset.channel;
-    if (!newInputToGroup[ch]) newInputToGroup[ch] = [];
-    if (!newInputToGroup[ch].includes(cb.dataset.group)) newInputToGroup[ch].push(cb.dataset.group);
-  });
-
-  document.querySelectorAll('.routing-check[data-direction="output"]:checked').forEach(cb => {
-    const g = cb.dataset.group;
-    if (!newGroupToOutput[g]) newGroupToOutput[g] = [];
-    if (!newGroupToOutput[g].includes(cb.dataset.channel)) newGroupToOutput[g].push(cb.dataset.channel);
-  });
-
-  const newRouting = {
-    ...(routingData.routing || {}),
-    inputToGroup: newInputToGroup,
-    groupToOutput: newGroupToOutput
-  };
-
-  const result = await window.electronAPI.routing.save({ routing: newRouting, channelNames: newChannelNames });
+  const result = await window.electronAPI.routing.save({ channelNames: newChannelNames });
 
   if (result.success) {
-    routingData.routing = newRouting;
     routingData.channelNames = newChannelNames;
     renderRoutingView();
-    showNotification('Routing sauvegardé', 'success');
-    const note = document.getElementById('routing-server-note');
-    if (note) note.classList.remove('hidden');
+    showNotification('Noms de canaux sauvegardés', 'success');
   } else {
     showNotification('Erreur: ' + (result.error || 'Sauvegarde échouée'), 'error');
   }

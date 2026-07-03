@@ -127,15 +127,6 @@
           </div>
 
           <div class="section">
-            <h3>🔗 Utilisateurs Audio Serveur</h3>
-            <p class="config-note" style="margin-bottom: 1rem">Participants LiveKit côté serveur avec canaux physiques d'entrée et de sortie dédiés (mix-minus natif). Voir aussi la page <strong>Routing</strong> pour le câblage entre canaux et groupes.</p>
-            <button class="btn btn-primary btn-small" id="btn-add-server-audio-user">➕ Ajouter</button>
-            <div id="server-audio-users-list" class="groups-list" style="margin-top: 1rem">
-              <p class="empty-state">Chargement...</p>
-            </div>
-          </div>
-
-          <div class="section">
             <h3>💾 Sauvegarde de configuration</h3>
             <div class="config-actions">
               <button class="btn btn-secondary" id="btn-export-config">Exporter config.yaml</button>
@@ -179,25 +170,27 @@
         <div id="view-routing" class="view">
           <h2>Routing Audio</h2>
 
-          <!-- Noms des canaux -->
+          <!-- Device info -->
           <div class="section">
-            <h3>🏷️ Noms des Canaux</h3>
-            <p class="config-note" style="margin-bottom: 1rem">Définissez les canaux physiques disponibles. Les matrices de routing se mettent à jour après la sauvegarde.</p>
+            <div class="routing-device-banner">
+              <div class="routing-device-info" id="routing-device-info">Chargement...</div>
+              <button class="btn btn-small btn-secondary" id="btn-refresh-channels">🔄 Actualiser</button>
+            </div>
+          </div>
+
+          <!-- Labels canaux physiques -->
+          <div class="section">
+            <h3>🏷️ Canaux Physiques</h3>
+            <p class="config-note">Labels des canaux de votre carte son. La liste est déterminée par le device sélectionné en <strong>Configuration</strong>.</p>
             <div class="channel-names-grid">
               <div class="channel-names-col">
-                <div class="channel-names-col-header">
-                  <h4>Canaux Entrée</h4>
-                  <button class="btn btn-small btn-secondary" id="btn-add-input-channel">➕ Ajouter</button>
-                </div>
+                <h4>Entrées</h4>
                 <div id="channel-names-inputs" class="channel-names-list">
                   <p class="empty-state">Chargement...</p>
                 </div>
               </div>
               <div class="channel-names-col">
-                <div class="channel-names-col-header">
-                  <h4>Canaux Sortie</h4>
-                  <button class="btn btn-small btn-secondary" id="btn-add-output-channel">➕ Ajouter</button>
-                </div>
+                <h4>Sorties</h4>
                 <div id="channel-names-outputs" class="channel-names-list">
                   <p class="empty-state">Chargement...</p>
                 </div>
@@ -205,29 +198,18 @@
             </div>
           </div>
 
-          <!-- Matrice Entrées → Groupes -->
+          <!-- Participants Serveur -->
           <div class="section">
-            <h3>🎙️ Entrées → Groupes</h3>
-            <p class="config-note" style="margin-bottom: 1rem">Quels canaux physiques d'entrée alimentent quels groupes LiveKit.</p>
-            <div class="routing-matrix-wrapper" id="routing-input-matrix">
-              <p class="empty-state">Chargement...</p>
-            </div>
-          </div>
-
-          <!-- Matrice Groupes → Sorties -->
-          <div class="section">
-            <h3>🔊 Groupes → Sorties</h3>
-            <p class="config-note" style="margin-bottom: 1rem">Vers quels canaux physiques de sortie chaque groupe est routé.</p>
-            <div class="routing-matrix-wrapper" id="routing-output-matrix">
-              <p class="empty-state">Chargement...</p>
-            </div>
+            <h3>🎙️ Participants Serveur</h3>
+            <p class="config-note">Participants LiveKit côté serveur — chaque ligne branche des canaux physiques d'E/S sur un groupe.</p>
+            <button class="btn btn-primary btn-small" id="btn-add-server-audio-user">➕ Ajouter</button>
+            <div id="server-audio-users-list" class="sau-list"></div>
           </div>
 
           <!-- Actions -->
           <div class="routing-actions">
-            <button class="btn btn-primary" id="btn-save-routing">Sauvegarder</button>
+            <button class="btn btn-primary" id="btn-save-routing">Sauvegarder noms de canaux</button>
             <button class="btn btn-secondary" id="btn-reload-routing">Recharger</button>
-            <span class="config-note routing-restart-note hidden" id="routing-server-note">⚠️ Redémarrez le serveur pour appliquer les changements.</span>
           </div>
         </div>
 

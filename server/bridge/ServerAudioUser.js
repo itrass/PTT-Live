@@ -18,7 +18,9 @@ class ServerAudioUser extends EventEmitter {
 
     this.name = options.name;
     this.inputChannel = parseInt(options.inputChannel, 10);
-    this.outputChannel = parseInt(options.outputChannel, 10);
+    this.outputChannel = (options.outputChannel !== null && options.outputChannel !== undefined)
+      ? parseInt(options.outputChannel, 10)
+      : null;
     this.groupId = options.groupId;
     this.frameSize = options.frameSize || 960;
     this.sampleRate = options.sampleRate || 48000;
@@ -43,7 +45,7 @@ class ServerAudioUser extends EventEmitter {
 
   _setupClientEvents() {
     this.client.on('connected', () => {
-      console.log(`[ServerAudioUser:${this.name}] Connecté à room "${this.groupId}" (in:${this.inputChannel} → out:${this.outputChannel})`);
+      console.log(`[ServerAudioUser:${this.name}] Connecté à room "${this.groupId}" (in:${this.inputChannel} → out:${this.outputChannel ?? 'aucune'})`);
       this.emit('connected');
     });
 
@@ -139,7 +141,9 @@ class ServerAudioUser extends EventEmitter {
     }
 
     this.mixedOutput = mix;
-    this.emit('outputReady', mix);
+    if (this.outputChannel !== null) {
+      this.emit('outputReady', mix);
+    }
   }
 
   /**

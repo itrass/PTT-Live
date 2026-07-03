@@ -65,6 +65,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     save: (data) => ipcRenderer.invoke('routing:save', data)
   },
 
+  // Découverte canaux physiques de la carte son sélectionnée
+  devices: {
+    getChannels: () => ipcRenderer.invoke('devices:getChannels')
+  },
+
   // Helpers
   platform: process.platform,
   version: process.env.npm_package_version || '0.3.0'

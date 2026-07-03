@@ -283,8 +283,17 @@ export default function useLiveKit() {
       });
     });
 
-    // Participants distants (utilisateurs WebRTC)
+    // Participants distants (utilisateurs WebRTC + server audio users)
+    // Exclure les participants internes de routage (role: 'bridge')
     room.remoteParticipants.forEach((participant) => {
+      let role = null;
+      try {
+        const meta = participant.metadata ? JSON.parse(participant.metadata) : {};
+        role = meta.role || null;
+      } catch (_) {}
+
+      if (role === 'bridge') return;
+
       const audioTracks = participant.audioTracks ? Array.from(participant.audioTracks.values()) : [];
       const audioPublication = audioTracks[0];
       const isSpeaking = room.activeSpeakers.some(s => s.identity === participant.identity);
