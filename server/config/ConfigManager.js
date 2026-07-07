@@ -17,7 +17,7 @@ const configPath = join(__dirname, 'config.yaml');
 /**
  * Génère un ID slug à partir d'un nom
  */
-function slugify(text) {
+export function slugify(text) {
   return text
     .toString()
     .normalize('NFD')

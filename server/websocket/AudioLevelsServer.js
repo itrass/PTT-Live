@@ -16,7 +16,7 @@ import { EventEmitter } from 'events';
 /**
  * Calcule le niveau RMS d'un buffer audio (dBFS)
  */
-function calculateRMS(buffer) {
+export function calculateRMS(buffer) {
   if (!buffer || buffer.length === 0) return -120; // Silence
 
   let sum = 0;
@@ -36,7 +36,7 @@ function calculateRMS(buffer) {
 /**
  * Calcule le peak d'un buffer audio
  */
-function calculatePeak(buffer) {
+export function calculatePeak(buffer) {
   if (!buffer || buffer.length === 0) return 0;
 
   let peak = 0;

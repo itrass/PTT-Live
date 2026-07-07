@@ -27,19 +27,20 @@ import { fileURLToPath } from 'url';
 import YAML from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROFILES_PATH = join(__dirname, 'device-profiles.yaml');
+const DEFAULT_PROFILES_PATH = join(__dirname, 'device-profiles.yaml');
 
-class DeviceProfileManager {
-  constructor() {
+export class DeviceProfileManager {
+  constructor(profilesPath = DEFAULT_PROFILES_PATH) {
+    this.profilesPath = profilesPath;
     this.profiles = this._load();
   }
 
   _load() {
-    if (!existsSync(PROFILES_PATH)) {
+    if (!existsSync(this.profilesPath)) {
       return { inputs: {}, outputs: {} };
     }
     try {
-      const content = readFileSync(PROFILES_PATH, 'utf8');
+      const content = readFileSync(this.profilesPath, 'utf8');
       return YAML.parse(content) || { inputs: {}, outputs: {} };
     } catch (error) {
       console.error('Erreur chargement device-profiles.yaml:', error.message);
@@ -48,7 +49,7 @@ class DeviceProfileManager {
   }
 
   _save() {
-    writeFileSync(PROFILES_PATH, YAML.stringify(this.profiles), 'utf8');
+    writeFileSync(this.profilesPath, YAML.stringify(this.profiles), 'utf8');
   }
 
   getInputProfile(deviceId) {
