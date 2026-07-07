@@ -10,6 +10,7 @@ pnpm-lock.yaml
 .env.*.local
 server/.env
 server/config/config.yaml
+server/config/device-profiles.yaml
 client/.env
 
 # Keep .env.example files (templates)
