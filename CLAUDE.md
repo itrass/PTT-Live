@@ -305,6 +305,98 @@ Voir [DESKTOP-APP.md](DESKTOP-APP.md) pour la doc complète.
 3. ✅ Pas de coupures sur 5min
 4. ✅ Reconnexion après perte WiFi
 
+---
+
+## Tests unitaires
+
+### Philosophie
+Tester uniquement la logique pure (pas le hardware audio, pas le réseau WebRTC, pas LiveKit). Toute fonction qui transforme des données, valide une entrée ou calcule un état est un candidat. Les backends audio (CoreAudio, JACK, PipeWire) et LiveKitClient ne se testent pas en unitaire — trop couplés au matériel/réseau.
+
+### Frameworks
+
+**Serveur** — Node.js test runner natif (déjà configuré : `"test": "node --test"`)
+- Pas de dépendance à installer
+- Fichiers de test : `server/tests/*.test.js`
+
+**Client** — Vitest + Testing Library (à installer si pas présent)
+```bash
+cd client && npm install -D vitest @testing-library/react @testing-library/user-event jsdom
+```
+- Fichiers de test : co-localisés avec la source (`*.test.jsx` ou `*.test.js`)
+- Config dans `client/vite.config.js` : ajouter `test: { environment: 'jsdom' }`
+
+### Commandes
+```bash
+# Serveur
+cd server && node --test
+
+# Client
+cd client && npm test
+```
+
+### Ce qu'il faut tester
+
+#### Serveur — logique pure (aucun mock requis)
+
+**`bridge/JitterBuffer.js`** — le module le plus critique à tester
+- `push()` : ajoute des frames, retourne false si buffer plein (maxSize)
+- `pop()` : retourne null si buffer vide (underrun), frame sinon
+- `stats.underruns` / `stats.overruns` : incrémentés correctement
+- `getHealth()` : score entre 0-100 selon remplissage et historique
+- Comportement adaptatif : targetSize s'ajuste selon l'historique
+
+**`bridge/OpusCodec.js`** — validation des options Opus
+- Options invalides levées à la construction (bitrate hors plage, sampleRate non supporté)
+- Presets bitrate : valeurs attendues pour `voice`, `voice-hd`, `music`
+- Taille de frame : cohérence frameSize/sampleRate
+
+**`config/ConfigManager.js`** — la fonction `slugify` (extraire et exporter)
+- Accents → ASCII : `"Scène"` → `"scene"`
+- Espaces → tirets, minuscules, caractères spéciaux supprimés
+- Génération d'ID de groupe/canal à partir des noms YAML
+
+**`config/DeviceProfileManager.js`** — CRUD profils (mocker `fs` pour éviter le disque)
+- `getProfile(deviceId)` : retourne null si inconnu
+- `saveProfile()` / `deleteProfile()` : état interne cohérent
+
+#### Serveur — avec mock léger
+
+**`websocket/AudioLevelsServer.js`** — extraire les calculs audio comme fonctions pures exportées
+- `calculateRMS(buffer)` : valeur RMS correcte sur un buffer PCM connu
+- `calculatePeak(buffer)` : pic maximal d'amplitude
+
+#### Client — composants React (Vitest + jsdom)
+
+**`components/UserList.jsx`**
+- Affiche la liste de participants correctement
+- Badge "speaking" visible quand `isSpeaking: true`
+- Icône mute visible quand `isMuted: true`
+- Cas vide : message ou liste vide sans crash
+
+**`components/VUMeter.jsx`**
+- Rendu stable à 0%, 50%, 100% de niveau
+- Indicateur de clipping visible au-dessus du seuil (ex: > 0.95)
+- Props `rms` et `peak` distinctes bien représentées
+
+**`components/AudioIndicator.jsx`**
+- Rendu en mode `capturing`, `playing`, état neutre
+
+**`components/Settings.jsx`** — fonctions utilitaires localStorage
+- `loadSettings()` : valeurs par défaut si localStorage vide
+- `saveSettings()` / `loadSettings()` : persistance aller-retour
+
+### Ce qu'il ne faut PAS tester en unitaire
+- `CoreAudioBackend`, `JACKBackend`, `PipeWireBackend` — hardware
+- `LiveKitClient`, `ServerAudioUser`, `AudioBridge` — réseau/WebRTC
+- `index.js` — orchestration globale
+- `App.jsx`, `Admin.jsx` — trop d'intégrations simultanées
+- `useLiveKit.js` — trop couplé à l'API LiveKit
+
+### Quand écrire des tests
+- Modification de `JitterBuffer.js`, `OpusCodec.js`, `ConfigManager.js` → mettre à jour les tests existants
+- Bug corrigé dans un module testable → ajouter un test de régression avant de merger
+- Nouveau module à logique pure → écrire les tests dans la même PR
+
 ## Points d'attention
 
 ### macOS spécifique
@@ -394,5 +486,5 @@ Voir [TODO.md](TODO.md) pour le plan détaillé.
 
 ---
 
-**Dernière mise à jour** : 2026-05-27
+**Dernière mise à jour** : 2026-07-07
 **Version** : 0.2.1 (Portable + QR Code)
