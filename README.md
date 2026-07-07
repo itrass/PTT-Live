@@ -114,8 +114,6 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 
 ---
 
----
-
 ## 🐛 Dépannage : "Connexion impossible"
 
 **Cause** : Clés LiveKit non configurées ou invalides.
@@ -132,7 +130,9 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 ## 📚 Documentation
 
-- **[README-PORTABLE.md](README-PORTABLE.md)** - 🆕 **Guide déploiement portable** (zéro config)
+- **[DESKTOP-APP.md](DESKTOP-APP.md)** - Application desktop Electron (dashboard + config)
+- **[README-PORTABLE.md](README-PORTABLE.md)** - Guide déploiement portable (zéro config)
+- **[SSL-SETUP.md](SSL-SETUP.md)** - Configuration certificats HTTPS locaux
 - **[NETWORK_SETUP.md](NETWORK_SETUP.md)** - Configuration réseau multi-appareils
 - **[docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)** - Configuration LiveKit (Cloud + Local)
 - **[CLAUDE.md](CLAUDE.md)** - Documentation développement complète
@@ -144,10 +144,11 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 - ✅ **Phase 1** : MVP fonctionnel (WebRTC + PTT)
 - ✅ **Phase 2** : Fonctionnalités avancées (groupes, routing, admin)
-- 🆕 **Portable** : Installation zéro-config macOS/Linux
+- ✅ **Portable** : Installation zéro-config macOS/Linux
+- ✅ **Desktop** : Application Electron avec dashboard complet
 - ⏳ **Phase 3** : Intégrations audio pro (Dante, AES67)
 
-**Version actuelle** : 0.2.0 (Portable - production-ready)
+**Version actuelle** : 0.3.0 (Desktop App)
 
 ---
 
@@ -299,15 +300,17 @@ project/
 │   ├── index.js              # Point d'entrée unique
 │   ├── livekit-server        # Binaire (téléchargé à l'install)
 │   ├── bridge/
-│   │   ├── audio.js          # Détection + abstraction
-│   │   ├── backends/
-│   │   │   ├── jack.js
-│   │   │   ├── pipewire.js
-│   │   │   ├── coreaudio.js
-│   │   │   └── wasapi.js
-│   │   ├── livekit.js
-│   │   ├── opus.js
-│   │   └── jitter.js
+│   │   ├── AudioBridge.js        # Classe principale
+│   │   ├── AudioBridgeManager.js # Gestion cycle de vie
+│   │   ├── LiveKitClient.js      # Connexion SFU
+│   │   ├── OpusCodec.js          # Transcodage PCM ↔ Opus
+│   │   ├── JitterBuffer.js       # Buffer 40ms
+│   │   ├── ServerAudioUser.js    # Utilisateur audio serveur
+│   │   └── backends/
+│   │       ├── CoreAudioBackend.js
+│   │       ├── JACKBackend.js
+│   │       ├── PipeWireBackend.js
+│   │       └── WASAPIBackend.js
 │   ├── api/                  # Admin REST
 │   └── config/
 │       └── config.yaml
