@@ -171,6 +171,9 @@ class ConfigManager extends EventEmitter {
       this.config.audio.jitterBufferMs = audioConfig.jitterBufferMs;
     }
 
+    // channelNames n'est plus dans config.yaml — géré par DeviceProfileManager
+    delete this.config.audio.channelNames;
+
     this.save(this.config);
 
     return this.config.audio;

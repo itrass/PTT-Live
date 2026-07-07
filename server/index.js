@@ -13,6 +13,7 @@ import YAML from 'yaml';
 import { AccessToken } from 'livekit-server-sdk';
 import adminRouter, { registerUser, addLog } from './api/admin.js';
 import configManager from './config/ConfigManager.js';
+import deviceProfileManager from './config/DeviceProfileManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
 import AudioLevelsServer from './websocket/AudioLevelsServer.js';
 import { setGlobalLogLevel } from './utils/Logger.js';
@@ -504,9 +505,11 @@ async function start() {
 
     // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
     // noServer: true en interne, l'upgrade est dispatché ci-dessous
+    const inputDeviceId  = config.audio?.device?.inputDeviceId  || null;
+    const outputDeviceId = config.audio?.device?.outputDeviceId || null;
     const audioLevelsServer = new AudioLevelsServer({
       server,
-      channelNames: config.audio?.channelNames || { inputs: {}, outputs: {} }
+      channelNames: deviceProfileManager.getChannelNames(inputDeviceId, outputDeviceId)
     });
     audioLevelsServer.start();
 
