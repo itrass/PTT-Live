@@ -16,6 +16,7 @@ import configManager from './config/ConfigManager.js';
 import audioBridgeManager from './bridge/AudioBridgeManager.js';
 import AudioLevelsServer from './websocket/AudioLevelsServer.js';
 import { setGlobalLogLevel } from './utils/Logger.js';
+import httpProxy from 'http-proxy';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -333,30 +334,12 @@ apiRouter.post('/token', async (req, res) => {
     // Enregistrer l'utilisateur dans le système admin
     registerUser(participantIdentity, username, groupId, roomName);
 
-    // Générer les canaux virtuels depuis le routing (inputs uniquement)
-    const virtualChannels = [];
-    const inputToGroup = config.audio?.routing?.inputToGroup || {};
-    const channelNames = config.audio?.channelNames?.inputs || {};
-
-    // Trouver tous les canaux physiques routés vers ce groupe
-    for (const [inputChannel, groups] of Object.entries(inputToGroup)) {
-      if (groups.includes(groupId)) {
-        const channelName = channelNames[inputChannel] || `Canal ${inputChannel}`;
-        virtualChannels.push({
-          id: `input-${inputChannel}`,
-          name: channelName,
-          isVirtual: true,
-          audioInput: parseInt(inputChannel, 10)
-        });
-      }
-    }
-
     res.json({
       token,
       url: LIVEKIT_URL,
       roomName,
       participantIdentity,
-      virtualChannels
+      virtualChannels: []
     });
 
   } catch (error) {
@@ -375,6 +358,33 @@ apiRouter.get('/health', (req, res) => {
     status: isLivekitRunning ? 'ok' : 'degraded',
     livekit: isLivekitRunning,
     timestamp: new Date().toISOString()
+  });
+});
+
+// Créer proxy WebSocket natif pour LiveKit (wss → ws)
+const livekitProxy = httpProxy.createProxyServer({
+  target: 'http://localhost:7880',
+  ws: true,
+  changeOrigin: true
+});
+
+livekitProxy.on('error', (err, req, res) => {
+  log('error', `❌ Erreur proxy LiveKit: ${err.message}`);
+  if (res && res.writeHead) {
+    res.writeHead(502, { 'Content-Type': 'text/plain' });
+    res.end('Proxy error');
+  }
+});
+
+livekitProxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+  log('debug', `🔀 Proxy WebSocket: ${req.url} → ws://localhost:7880`);
+});
+
+// Proxy HTTP pour LiveKit (requêtes REST comme /rtc/validate)
+app.use('/livekit', (req, res) => {
+  log('debug', `🔀 Proxy HTTP: ${req.originalUrl} → http://localhost:7880${req.url}`);
+  livekitProxy.web(req, res, {
+    target: 'http://localhost:7880'
   });
 });
 
@@ -437,11 +447,19 @@ async function start() {
     let server;
 
     if (ENABLE_HTTPS) {
-      // Charger certificats SSL (mêmes que Vite)
-      const certPath = join(__dirname, '..', 'client');
+      // Charger certificats SSL depuis .env ou fallback
+      const certPath = process.env.SSL_CERT || join(__dirname, '..', 'certs', 'localhost.pem');
+      const keyPath = process.env.SSL_KEY || join(__dirname, '..', 'certs', 'localhost-key.pem');
+
+      if (!existsSync(certPath) || !existsSync(keyPath)) {
+        log('error', '❌ Certificats SSL introuvables');
+        log('info', '💡 Exécutez : ./setup-certificates.sh');
+        process.exit(1);
+      }
+
       const httpsOptions = {
-        key: readFileSync(join(certPath, 'localhost+3-key.pem')),
-        cert: readFileSync(join(certPath, 'localhost+3.pem'))
+        key: readFileSync(keyPath),
+        cert: readFileSync(certPath)
       };
 
       server = https.createServer(httpsOptions, app);
@@ -485,8 +503,25 @@ async function start() {
     }
 
     // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
+    // noServer: true en interne, l'upgrade est dispatché ci-dessous
     const audioLevelsServer = new AudioLevelsServer({ server });
     audioLevelsServer.start();
+
+    // 2.6 Dispatcher unique pour les upgrades WebSocket du port HTTP/HTTPS
+    // (proxy LiveKit et audio-levels partagent le même serveur, donc le même
+    // événement 'upgrade' : un seul listener doit trancher par chemin)
+    server.on('upgrade', (req, socket, head) => {
+      if (req.url.startsWith('/livekit')) {
+        req.url = req.url.replace(/^\/livekit/, '');
+        livekitProxy.ws(req, socket, head);
+      } else if (req.url.startsWith('/audio-levels')) {
+        audioLevelsServer.handleUpgrade(req, socket, head);
+      } else {
+        log('warn', `⚠️  Unknown WebSocket path: ${req.url}`);
+        socket.destroy();
+      }
+    });
+
     const wsProtocol = ENABLE_HTTPS ? 'wss' : 'ws';
     log('info', `✓ WebSocket Audio Levels démarré sur ${wsProtocol}://${SERVER_HOST}:${SERVER_PORT}`);
 

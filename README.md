@@ -8,17 +8,42 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 
 ## 🚀 Démarrage rapide
 
+### 🖥️ Application Desktop (Nouveau !)
+
+**Interface graphique complète pour gérer le serveur** :
+
+```bash
+# Lancer l'application desktop
+./start-desktop.sh
+```
+
+✨ **Fonctionnalités** :
+- Dashboard temps réel (stats, utilisateurs)
+- Configuration audio (devices, bitrate)
+- Gestion groupes (CRUD)
+- QR Code pour connexion clients
+- Logs serveur filtrables
+
+📖 **Documentation complète** : [DESKTOP-APP.md](DESKTOP-APP.md)
+
+---
+
 ### Installation Automatique (Recommandé)
 
 **Un seul script pour tout installer** (détection automatique macOS/Linux) :
 
 ```bash
-# Lancer l'installation portable
+# 1. Installer dépendances + LiveKit
 ./install.sh
 
-# Démarrer le système
+# 2. Configurer certificats SSL locaux (NOUVEAU - requis pour HTTPS)
+./setup-certificates.sh
+
+# 3. Démarrer le système (mode CLI)
 ./start.sh --dev
 ```
+
+🔐 **Certificats SSL** : Le script `setup-certificates.sh` génère des certificats **automatiquement approuvés** (pas de warnings navigateur). Voir [SSL-SETUP.md](SSL-SETUP.md)
 
 ✨ **L'installeur configure automatiquement** :
 - LiveKit Server local (pas besoin de compte cloud)
@@ -89,8 +114,6 @@ Communiquez via smartphone (PWA) en WiFi, le serveur fait le pont avec l'install
 
 ---
 
----
-
 ## 🐛 Dépannage : "Connexion impossible"
 
 **Cause** : Clés LiveKit non configurées ou invalides.
@@ -107,7 +130,9 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 ## 📚 Documentation
 
-- **[README-PORTABLE.md](README-PORTABLE.md)** - 🆕 **Guide déploiement portable** (zéro config)
+- **[DESKTOP-APP.md](DESKTOP-APP.md)** - Application desktop Electron (dashboard + config)
+- **[README-PORTABLE.md](README-PORTABLE.md)** - Guide déploiement portable (zéro config)
+- **[SSL-SETUP.md](SSL-SETUP.md)** - Configuration certificats HTTPS locaux
 - **[NETWORK_SETUP.md](NETWORK_SETUP.md)** - Configuration réseau multi-appareils
 - **[docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)** - Configuration LiveKit (Cloud + Local)
 - **[CLAUDE.md](CLAUDE.md)** - Documentation développement complète
@@ -119,10 +144,11 @@ Voir le guide complet : [docs/SETUP_LIVEKIT.md](docs/SETUP_LIVEKIT.md)
 
 - ✅ **Phase 1** : MVP fonctionnel (WebRTC + PTT)
 - ✅ **Phase 2** : Fonctionnalités avancées (groupes, routing, admin)
-- 🆕 **Portable** : Installation zéro-config macOS/Linux
+- ✅ **Portable** : Installation zéro-config macOS/Linux
+- ✅ **Desktop** : Application Electron avec dashboard complet
 - ⏳ **Phase 3** : Intégrations audio pro (Dante, AES67)
 
-**Version actuelle** : 0.2.0 (Portable - production-ready)
+**Version actuelle** : 0.3.0 (Desktop App)
 
 ---
 
@@ -274,15 +300,17 @@ project/
 │   ├── index.js              # Point d'entrée unique
 │   ├── livekit-server        # Binaire (téléchargé à l'install)
 │   ├── bridge/
-│   │   ├── audio.js          # Détection + abstraction
-│   │   ├── backends/
-│   │   │   ├── jack.js
-│   │   │   ├── pipewire.js
-│   │   │   ├── coreaudio.js
-│   │   │   └── wasapi.js
-│   │   ├── livekit.js
-│   │   ├── opus.js
-│   │   └── jitter.js
+│   │   ├── AudioBridge.js        # Classe principale
+│   │   ├── AudioBridgeManager.js # Gestion cycle de vie
+│   │   ├── LiveKitClient.js      # Connexion SFU
+│   │   ├── OpusCodec.js          # Transcodage PCM ↔ Opus
+│   │   ├── JitterBuffer.js       # Buffer 40ms
+│   │   ├── ServerAudioUser.js    # Utilisateur audio serveur
+│   │   └── backends/
+│   │       ├── CoreAudioBackend.js
+│   │       ├── JACKBackend.js
+│   │       ├── PipeWireBackend.js
+│   │       └── WASAPIBackend.js
 │   ├── api/                  # Admin REST
 │   └── config/
 │       └── config.yaml
