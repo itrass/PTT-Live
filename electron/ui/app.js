@@ -631,7 +631,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (response.ok) {
-          showNotification('Périphérique audio configuré', 'success');
+          showNotification('Périphérique audio configuré — profil chargé', 'success');
+          // Recharger le profil dans la vue Routing si elle existe déjà
+          if (routingData) await fetchRouting();
         } else {
           showNotification('Erreur configuration', 'error');
         }

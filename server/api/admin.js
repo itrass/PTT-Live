@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { CoreAudioBackend } from '../bridge/backends/CoreAudioBackend.js';
 import configManager from '../config/ConfigManager.js';
+import deviceProfileManager from '../config/DeviceProfileManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const router = Router();
@@ -468,64 +469,62 @@ router.get('/audio/device', (req, res) => {
 });
 
 /**
- * GET /admin/audio/channels/names
- * Récupère les noms personnalisés des canaux physiques
+ * GET /admin/devices/profiles
+ * Retourne les profils (noms de canaux) pour les devices actuellement sélectionnés
  */
-router.get('/audio/channels/names', (req, res) => {
+router.get('/devices/profiles', (req, res) => {
   try {
     const config = configManager.get();
-    const channelNames = config.audio?.channelNames || { inputs: {}, outputs: {} };
+    const inputDeviceId  = config.audio?.device?.inputDeviceId  || null;
+    const outputDeviceId = config.audio?.device?.outputDeviceId || null;
+
+    const channelNames = deviceProfileManager.getChannelNames(inputDeviceId, outputDeviceId);
 
     res.json({
+      inputDeviceId,
+      outputDeviceId,
       channelNames
     });
   } catch (error) {
-    console.error('Erreur GET /admin/audio/channels/names:', error);
-    res.status(500).json({ error: 'Failed to load channel names' });
+    console.error('Erreur GET /admin/devices/profiles:', error);
+    res.status(500).json({ error: 'Failed to load device profiles' });
   }
 });
 
 /**
- * PUT /admin/audio/channels/names
- * Sauvegarde les noms personnalisés des canaux physiques
- * Body: { inputs: { "0": "Micro Principal", ... }, outputs: { "0": "Retour Scène", ... } }
+ * PUT /admin/devices/profiles
+ * Sauvegarde les noms de canaux dans le profil du device actif
+ * Body: { inputs: { "0": "Micro", ... }, outputs: { "0": "Retour", ... } }
  */
-router.put('/audio/channels/names', (req, res) => {
+router.put('/devices/profiles', (req, res) => {
   try {
     const { inputs, outputs } = req.body;
 
-    if (!inputs && !outputs) {
-      return res.status(400).json({
-        error: 'Missing required fields: inputs or outputs'
-      });
+    if (inputs === undefined && outputs === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: inputs or outputs' });
     }
 
     const config = configManager.get();
+    const inputDeviceId  = config.audio?.device?.inputDeviceId  || null;
+    const outputDeviceId = config.audio?.device?.outputDeviceId || null;
 
-    if (!config.audio.channelNames) {
-      config.audio.channelNames = { inputs: {}, outputs: {} };
-    }
+    deviceProfileManager.saveChannelNames(inputDeviceId, outputDeviceId, { inputs, outputs });
 
-    if (inputs) {
-      config.audio.channelNames.inputs = inputs;
-    }
-
-    if (outputs) {
-      config.audio.channelNames.outputs = outputs;
-    }
-
-    configManager.save(config);
-
-    addLog('info', 'Channel names updated', { inputCount: Object.keys(inputs || {}).length, outputCount: Object.keys(outputs || {}).length });
-
-    res.json({
-      message: 'Channel names updated',
-      channelNames: config.audio.channelNames
+    addLog('info', 'Channel names updated (device profile)', {
+      device: inputDeviceId,
+      inputCount: Object.keys(inputs || {}).length,
+      outputCount: Object.keys(outputs || {}).length
     });
 
+    res.json({
+      message: 'Channel names saved to device profile',
+      inputDeviceId,
+      outputDeviceId,
+      channelNames: deviceProfileManager.getChannelNames(inputDeviceId, outputDeviceId)
+    });
   } catch (error) {
-    console.error('Erreur PUT /admin/audio/channels/names:', error);
-    res.status(500).json({ error: 'Failed to update channel names' });
+    console.error('Erreur PUT /admin/devices/profiles:', error);
+    res.status(500).json({ error: 'Failed to save device profile' });
   }
 });
 

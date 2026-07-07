@@ -13,14 +13,28 @@ const QRCode = require('qrcode');
 const yaml = require('yaml');
 const setupHelper = require('./setup-helper');
 
-const CONFIG_PATH = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
+const CONFIG_PATH   = path.join(__dirname, '..', 'server', 'config', 'config.yaml');
+const PROFILES_PATH = path.join(__dirname, '..', 'server', 'config', 'device-profiles.yaml');
 
 function readConfig() {
   return yaml.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }
 
 function writeConfig(config) {
+  // Ne jamais écrire channelNames dans config.yaml (géré par device-profiles.yaml)
+  if (config.audio) delete config.audio.channelNames;
   fs.writeFileSync(CONFIG_PATH, yaml.stringify(config), 'utf8');
+}
+
+function readProfiles() {
+  if (!fs.existsSync(PROFILES_PATH)) return { inputs: {}, outputs: {} };
+  try {
+    return yaml.parse(fs.readFileSync(PROFILES_PATH, 'utf8')) || { inputs: {}, outputs: {} };
+  } catch { return { inputs: {}, outputs: {} }; }
+}
+
+function writeProfiles(profiles) {
+  fs.writeFileSync(PROFILES_PATH, yaml.stringify(profiles), 'utf8');
 }
 
 function slugify(text) {
@@ -519,9 +533,16 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('routing:get', () => {
     try {
-      const config = readConfig();
+      const config   = readConfig();
+      const profiles = readProfiles();
+      const inputDeviceId  = config.audio?.device?.inputDeviceId  || null;
+      const outputDeviceId = config.audio?.device?.outputDeviceId || null;
+      const channelNames = {
+        inputs:  inputDeviceId  ? (profiles.inputs?.[inputDeviceId]?.names  || {}) : {},
+        outputs: outputDeviceId ? (profiles.outputs?.[outputDeviceId]?.names || {}) : {}
+      };
       return {
-        channelNames: config.audio?.channelNames || { inputs: {}, outputs: {} },
+        channelNames,
         groups: config.groups || [],
         serverAudioUsers: config.server_audio_users || []
       };
@@ -573,10 +594,23 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('routing:save', (event, { channelNames }) => {
     try {
-      const config = readConfig();
-      if (!config.audio) config.audio = {};
-      config.audio.channelNames = channelNames;
-      writeConfig(config);
+      const config   = readConfig();
+      const profiles = readProfiles();
+      const inputDeviceId  = config.audio?.device?.inputDeviceId  || null;
+      const outputDeviceId = config.audio?.device?.outputDeviceId || null;
+
+      if (inputDeviceId && channelNames?.inputs !== undefined) {
+        if (!profiles.inputs) profiles.inputs = {};
+        if (!profiles.inputs[inputDeviceId]) profiles.inputs[inputDeviceId] = {};
+        profiles.inputs[inputDeviceId].names = channelNames.inputs;
+      }
+      if (outputDeviceId && channelNames?.outputs !== undefined) {
+        if (!profiles.outputs) profiles.outputs = {};
+        if (!profiles.outputs[outputDeviceId]) profiles.outputs[outputDeviceId] = {};
+        profiles.outputs[outputDeviceId].names = channelNames.outputs;
+      }
+
+      writeProfiles(profiles);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };

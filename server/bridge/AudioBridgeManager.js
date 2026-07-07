@@ -7,6 +7,8 @@
 import { EventEmitter } from 'events';
 import { AccessToken } from 'livekit-server-sdk';
 import configManager from '../config/ConfigManager.js';
+import deviceProfileManager from '../config/DeviceProfileManager.js';
+import { CoreAudioBackend } from './backends/CoreAudioBackend.js';
 
 class AudioBridgeManager extends EventEmitter {
   constructor() {
@@ -116,8 +118,30 @@ class AudioBridgeManager extends EventEmitter {
       if (audioConfig.customOpusBitrate) audioConfig.customOpusBitrate = parseInt(audioConfig.customOpusBitrate, 10);
 
       // Extraire les device IDs depuis le sous-objet device
-      const inputDeviceId = audioConfig.device?.inputDeviceId || null;
+      const inputDeviceId  = audioConfig.device?.inputDeviceId  || null;
       const outputDeviceId = audioConfig.device?.outputDeviceId || null;
+
+      // Détecter le channel count réel depuis CoreAudio (prioritaire sur config.channels)
+      let inputChannels  = parseInt(audioConfig.channels, 10) || 1;
+      let outputChannels = parseInt(audioConfig.channels, 10) || 1;
+
+      if (process.platform === 'darwin') {
+        try {
+          const devices = CoreAudioBackend.getDevices();
+          const inputDev  = devices.find(d => d.name === inputDeviceId);
+          const outputDev = devices.find(d => d.name === outputDeviceId);
+
+          if (inputDev?.maxInputChannels  > 0) inputChannels  = inputDev.maxInputChannels;
+          if (outputDev?.maxOutputChannels > 0) outputChannels = outputDev.maxOutputChannels;
+
+          console.log(`📡 Canaux réels : entrée ${inputChannels}ch (${inputDeviceId}), sortie ${outputChannels}ch (${outputDeviceId})`);
+
+          // Enregistrer dans le profil (ne modifie pas les noms existants)
+          deviceProfileManager.recordDeviceChannels(inputDeviceId, inputChannels, outputDeviceId, outputChannels);
+        } catch (e) {
+          console.warn('⚠️  Détection canaux CoreAudio échouée, fallback config.channels:', e.message);
+        }
+      }
 
       // Utiliser l'URL résolue passée en option, sinon fallback config
       const liveKitUrl = options.liveKitUrl || config.server?.livekit?.url || 'ws://localhost:7880';
@@ -125,6 +149,8 @@ class AudioBridgeManager extends EventEmitter {
       // Créer l'instance avec la config
       this.bridge = new AudioBridge({
         ...audioConfig,
+        channels: inputChannels,   // channel count réel du device d'entrée
+        outputChannels,            // channel count réel du device de sortie
         liveKitUrl,
         serverAudioUsers,
         groups: config.groups || [],

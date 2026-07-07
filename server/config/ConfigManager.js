@@ -17,7 +17,7 @@ const configPath = join(__dirname, 'config.yaml');
 /**
  * Génère un ID slug à partir d'un nom
  */
-function slugify(text) {
+export function slugify(text) {
   return text
     .toString()
     .normalize('NFD')
@@ -170,6 +170,9 @@ class ConfigManager extends EventEmitter {
     if (audioConfig.jitterBufferMs !== undefined) {
       this.config.audio.jitterBufferMs = audioConfig.jitterBufferMs;
     }
+
+    // channelNames n'est plus dans config.yaml — géré par DeviceProfileManager
+    delete this.config.audio.channelNames;
 
     this.save(this.config);
 
