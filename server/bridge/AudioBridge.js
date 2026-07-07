@@ -321,24 +321,26 @@ export class AudioBridge extends EventEmitter {
       const outputCh = userConfig.outputChannel;
       const groupId = userConfig.groupId;
       user.on('outputReady', (mixBuffer) => {
-        if (!this.audioBackend) return;
-        const numChannels = this.options.channels || 1;
-        const frameSize = this.options.frameSize;
+        // Routing physique uniquement si un canal de sortie est configuré
+        if (outputCh !== null && outputCh !== undefined && this.audioBackend) {
+          const numChannels = this.options.channels || 1;
+          const frameSize = this.options.frameSize;
 
-        if (numChannels <= 1) {
-          const pcmBuffer = this._float32ToBuffer(mixBuffer);
-          this.audioBackend.queueAudio(pcmBuffer);
-        } else {
-          // Construire un buffer multi-canaux avec l'audio du user sur son canal de sortie
-          const interleaved = new Float32Array(frameSize * numChannels);
-          for (let i = 0; i < frameSize; i++) {
-            interleaved[i * numChannels + outputCh] = mixBuffer[i];
+          if (numChannels <= 1) {
+            const pcmBuffer = this._float32ToBuffer(mixBuffer);
+            this.audioBackend.queueAudio(pcmBuffer);
+          } else {
+            // Construire un buffer multi-canaux avec l'audio du user sur son canal de sortie
+            const interleaved = new Float32Array(frameSize * numChannels);
+            for (let i = 0; i < frameSize; i++) {
+              interleaved[i * numChannels + outputCh] = mixBuffer[i];
+            }
+            const pcmBuffer = this._float32ToBuffer(interleaved);
+            this.audioBackend.queueAudio(pcmBuffer);
           }
-          const pcmBuffer = this._float32ToBuffer(interleaved);
-          this.audioBackend.queueAudio(pcmBuffer);
         }
 
-        // VU-mètres : niveaux groupe (mix LiveKit reçu) et sortie physique
+        // VU-mètres : toujours mis à jour, même sans canal de sortie physique
         if (this.audioLevelsServer) {
           this.audioLevelsServer.updateGroupLevels(new Map([[groupId, mixBuffer]]));
           if (outputCh !== null && outputCh !== undefined) {
@@ -388,6 +390,10 @@ export class AudioBridge extends EventEmitter {
           const channelData = this.inputChannelBuffers.get(user.inputChannel);
           if (channelData) {
             user.sendAudio(channelData);
+            // VU-mètre groupe : contribution de l'entrée physique du server user
+            if (this.audioLevelsServer) {
+              this.audioLevelsServer.updateGroupLevels(new Map([[user.groupId, channelData]]));
+            }
           }
         }
 

@@ -83,6 +83,10 @@ export class AudioLevelsServer extends EventEmitter {
       messagesSent: 0,
       errors: 0
     };
+
+    // Accumulateur MAX par fenêtre de broadcast (50ms)
+    // Évite les a-coups quand entrée physique et réception LiveKit écrivent en alternance
+    this._pendingGroups = {};
   }
 
   /**
@@ -228,6 +232,11 @@ export class AudioLevelsServer extends EventEmitter {
   _broadcastLevels() {
     if (this.clients.size === 0) return;
 
+    // Appliquer les niveaux de groupe accumulés (MAX de la fenêtre) et réinitialiser
+    this.levels.groups = { ...this._pendingGroups };
+    this.levels.routing.activeGroups = Object.keys(this._pendingGroups);
+    this._pendingGroups = {};
+
     const message = {
       type: 'levels',
       timestamp: Date.now(),
@@ -288,8 +297,9 @@ export class AudioLevelsServer extends EventEmitter {
   }
 
   /**
-   * Met à jour les niveaux de groupe
-   * Appelé par le GroupAudioRouter après processInputsToGroups()
+   * Met à jour les niveaux de groupe.
+   * Accumule le MAX de la fenêtre de broadcast pour éviter les a-coups
+   * quand entrée physique et réception LiveKit s'alternent sur le même groupe.
    */
   updateGroupLevels(groupBuffers) {
     groupBuffers.forEach((buffer, groupName) => {
@@ -297,10 +307,11 @@ export class AudioLevelsServer extends EventEmitter {
       const peak = calculatePeak(buffer);
       const clipping = peak >= 0.99;
 
-      this.levels.groups[groupName] = { rms, peak, clipping };
+      const existing = this._pendingGroups[groupName];
+      if (!existing || rms > existing.rms) {
+        this._pendingGroups[groupName] = { rms, peak, clipping };
+      }
     });
-
-    this.levels.routing.activeGroups = Array.from(groupBuffers.keys());
   }
 
   /**
@@ -333,6 +344,7 @@ export class AudioLevelsServer extends EventEmitter {
         activeOutputs: []
       }
     };
+    this._pendingGroups = {};
   }
 
   /**

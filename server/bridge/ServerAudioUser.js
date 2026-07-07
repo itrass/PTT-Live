@@ -145,9 +145,7 @@ class ServerAudioUser extends EventEmitter {
     }
 
     this.mixedOutput = mix;
-    if (this.outputChannel !== null) {
-      this.emit('outputReady', mix);
-    }
+    this.emit('outputReady', mix);
   }
 
   /**
