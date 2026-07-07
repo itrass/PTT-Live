@@ -53,6 +53,7 @@ export class AudioBridge extends EventEmitter {
     this.opusEncoder = null;
     this.opusDecoder = null;
     this.jitterBuffer = null;
+    this.audioLevelsServer = options.audioLevelsServer || null;
 
     // État
     this.isRunning = false;
@@ -318,6 +319,7 @@ export class AudioBridge extends EventEmitter {
 
       // Quand une frame de mix est prête, l'envoyer vers le canal physique de sortie
       const outputCh = userConfig.outputChannel;
+      const groupId = userConfig.groupId;
       user.on('outputReady', (mixBuffer) => {
         if (!this.audioBackend) return;
         const numChannels = this.options.channels || 1;
@@ -334,6 +336,14 @@ export class AudioBridge extends EventEmitter {
           }
           const pcmBuffer = this._float32ToBuffer(interleaved);
           this.audioBackend.queueAudio(pcmBuffer);
+        }
+
+        // VU-mètres : niveaux groupe (mix LiveKit reçu) et sortie physique
+        if (this.audioLevelsServer) {
+          this.audioLevelsServer.updateGroupLevels(new Map([[groupId, mixBuffer]]));
+          if (outputCh !== null && outputCh !== undefined) {
+            this.audioLevelsServer.updateOutputLevels(new Map([[outputCh, mixBuffer]]));
+          }
         }
       });
 
@@ -379,6 +389,11 @@ export class AudioBridge extends EventEmitter {
           if (channelData) {
             user.sendAudio(channelData);
           }
+        }
+
+        // VU-mètres : niveaux des entrées physiques
+        if (this.audioLevelsServer) {
+          this.audioLevelsServer.updateInputLevels(this.inputChannelBuffers);
         }
 
         this.stats.framesCapture++;

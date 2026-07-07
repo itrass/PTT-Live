@@ -732,73 +732,68 @@ body {
 }
 
 .vu-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.4rem;
+}
+
+.vu-name {
   font-size: 0.875rem;
   font-weight: 500;
-  margin-bottom: 0.5rem;
   color: var(--text-primary);
+}
+
+.vu-rms {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .vu-bar-container {
   position: relative;
-  height: 24px;
-  background: var(--bg-tertiary);
+  flex: 1;
+  height: 18px;
+  background: #1a1a1a;
   border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 0.5rem;
 }
 
-.vu-bar {
-  height: 100%;
-  transition: width 0.05s linear;
-  border-radius: 3px;
-}
-
-.vu-bar-green {
-  background: linear-gradient(to right, #4caf50, #66bb6a);
-}
-
-.vu-bar-yellow {
-  background: linear-gradient(to right, #ff9800, #ffa726);
-}
-
-.vu-bar-red {
-  background: linear-gradient(to right, #f44336, #e57373);
-}
-
-.vu-peak {
+/* Barre pleine largeur avec le dégradé fixe, clipée depuis la droite */
+.vu-bar-fill {
   position: absolute;
-  top: 0;
+  inset: 0;
+  background: linear-gradient(to right,
+    #27ae60 0%,  #27ae60 80%,
+    #f39c12 80%, #f39c12 90%,
+    #e74c3c 90%, #e74c3c 100%
+  );
+  transition: clip-path 0.05s linear;
+}
+
+/* Marqueur de peak */
+.vu-peak-line {
+  position: absolute;
+  top: -1px;
   width: 2px;
-  height: 100%;
+  height: calc(100% + 2px);
   background: #ffffff;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.9);
+  border-radius: 1px;
   transition: left 0.1s linear;
-}
-
-.vu-values {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-}
-
-.vu-rms {
-  color: var(--text-secondary);
+  pointer-events: none;
 }
 
 .vu-clip {
   color: var(--accent-error);
   font-weight: bold;
-  animation: blinkClip 0.5s ease-in-out infinite;
+  margin-left: 0.4rem;
+  animation: blinkClip 0.4s ease-in-out infinite;
 }
 
 @keyframes blinkClip {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
 }
 
 /* ========== Routing View ========== */

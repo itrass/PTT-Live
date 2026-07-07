@@ -78,7 +78,6 @@ function createWindow() {
     }
   });
 
-  // DevTools en mode dev
   if (isDev) {
     mainWindow.webContents.openDevTools();
   }
@@ -340,6 +339,19 @@ async function pingServer() {
 }
 
 // ========== App Lifecycle ==========
+
+// Electron 28+ : le vérificateur de certificats intégré ne lit pas le Keychain
+// macOS par défaut pour les connexions WebSocket. On autorise explicitement les
+// certs mkcert pour localhost/127.0.0.1 (admin dashboard local uniquement).
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  const isLocal = url.includes('127.0.0.1') || url.includes('localhost');
+  if (isLocal) {
+    event.preventDefault();
+    callback(true);
+  } else {
+    callback(false);
+  }
+});
 
 app.whenReady().then(async () => {
   // Setup IPC Handlers (doit être après app.whenReady)

@@ -504,7 +504,10 @@ async function start() {
 
     // 2.5 Démarrer WebSocket Audio Levels (même port que l'API)
     // noServer: true en interne, l'upgrade est dispatché ci-dessous
-    const audioLevelsServer = new AudioLevelsServer({ server });
+    const audioLevelsServer = new AudioLevelsServer({
+      server,
+      channelNames: config.audio?.channelNames || { inputs: {}, outputs: {} }
+    });
     audioLevelsServer.start();
 
     // 2.6 Dispatcher unique pour les upgrades WebSocket du port HTTP/HTTPS
@@ -528,7 +531,7 @@ async function start() {
     // 3. Démarrer Audio Bridge Manager (Phase 2.5)
     log('info', '');
     log('info', '🎵 Démarrage Audio Bridge Manager...');
-    await audioBridgeManager.start({ liveKitUrl: LIVEKIT_URL });
+    await audioBridgeManager.start({ liveKitUrl: LIVEKIT_URL, audioLevelsServer });
     log('info', '✓ Audio Bridge Manager prêt (mode placeholder)');
 
     // Gérer erreur port déjà utilisé

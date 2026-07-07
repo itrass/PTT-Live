@@ -9,6 +9,9 @@ let serverRunning = false;
 let statsInterval = null;
 let logsBuffer = [];
 let audioLevelsWS = null;
+let audioLevelsConnected = false;
+let channelNames = { inputs: {}, outputs: {} };
+let vuStructureKey = null;
 let routingData = null;
 let deviceChannels = null;
 let audioLevelsData = {
@@ -1214,6 +1217,7 @@ function connectAudioLevelsWS() {
 
     audioLevelsWS.onopen = () => {
       console.log('WebSocket audio-levels connecté');
+      audioLevelsConnected = true;
       updateVUMetersStatus('Connecté');
     };
 
@@ -1223,6 +1227,10 @@ function connectAudioLevelsWS() {
 
         switch (message.type) {
           case 'initial':
+            audioLevelsData = message.data;
+            if (message.channelNames) channelNames = message.channelNames;
+            renderVUMeters();
+            break;
           case 'levels':
             audioLevelsData = message.data;
             renderVUMeters();
@@ -1247,6 +1255,7 @@ function connectAudioLevelsWS() {
     audioLevelsWS.onclose = () => {
       console.log('WebSocket audio-levels déconnecté');
       audioLevelsWS = null;
+      audioLevelsConnected = false;
       updateVUMetersStatus('Déconnecté');
 
       // Reconnexion automatique si serveur actif
@@ -1300,72 +1309,103 @@ function renderVUMeters() {
     Object.keys(audioLevelsData.outputs).length > 0;
 
   if (!hasData) {
+    vuStructureKey = null;
+    const statusMsg = audioLevelsConnected ? 'WebSocket: Connecté' : 'WebSocket: En attente de connexion...';
+    const statusClass = audioLevelsConnected ? 'connected' : 'disconnected';
     container.innerHTML = `
-      <p class="vu-status">WebSocket: En attente de connexion...</p>
-      <p class="empty-state">Aucune donnée audio disponible</p>
+      <p class="vu-status ${statusClass}">${statusMsg}</p>
+      <p class="empty-state">Aucune donnée audio active</p>
     `;
     return;
   }
 
+  // Clé de structure : reconstruit le DOM seulement si les canaux changent
+  const newKey = JSON.stringify([
+    Object.keys(audioLevelsData.inputs).sort(),
+    Object.keys(audioLevelsData.groups).sort(),
+    Object.keys(audioLevelsData.outputs).sort()
+  ]);
+
+  if (newKey !== vuStructureKey) {
+    vuStructureKey = newKey;
+    _buildVUMetersDOM(container);
+    // Laisser le navigateur appliquer l'état initial avant le premier update
+    // (sinon la transition CSS n'a pas d'état de départ et ne joue pas)
+    requestAnimationFrame(_updateVUMeterValues);
+    return;
+  }
+
+  // Mise à jour en-place des valeurs (pas de innerHTML → transitions CSS actives)
+  _updateVUMeterValues();
+}
+
+function _buildVUMetersDOM(container) {
   let html = '<div class="vu-status connected">WebSocket: Connecté</div>';
 
-  // Inputs
-  if (Object.keys(audioLevelsData.inputs).length > 0) {
-    html += '<div class="vu-section"><h4>Entrées Audio</h4><div class="vu-grid">';
-    Object.entries(audioLevelsData.inputs).forEach(([channelId, data]) => {
-      html += renderVUMeter(channelId, data, 'input');
-    });
-    html += '</div></div>';
-  }
+  const sections = [
+    { key: 'inputs',  title: 'Entrées', namesFn: id => channelNames.inputs?.[id] || channelNames.inputs?.[String(id)] || `Entrée ${id}` },
+    { key: 'groups',  title: 'Groupes', namesFn: id => id },
+    { key: 'outputs', title: 'Sorties', namesFn: id => channelNames.outputs?.[id] || channelNames.outputs?.[String(id)] || `Sortie ${id}` }
+  ];
 
-  // Groups
-  if (Object.keys(audioLevelsData.groups).length > 0) {
-    html += '<div class="vu-section"><h4>Groupes</h4><div class="vu-grid">';
-    Object.entries(audioLevelsData.groups).forEach(([groupName, data]) => {
-      html += renderVUMeter(groupName, data, 'group');
-    });
-    html += '</div></div>';
-  }
-
-  // Outputs
-  if (Object.keys(audioLevelsData.outputs).length > 0) {
-    html += '<div class="vu-section"><h4>Sorties Audio</h4><div class="vu-grid">';
-    Object.entries(audioLevelsData.outputs).forEach(([channelId, data]) => {
-      html += renderVUMeter(channelId, data, 'output');
-    });
+  for (const { key, title, namesFn } of sections) {
+    const ids = Object.keys(audioLevelsData[key]);
+    if (ids.length === 0) continue;
+    html += `<div class="vu-section"><h4>${title}</h4><div class="vu-grid">`;
+    for (const id of ids) {
+      const mid = `${key}-${id}`;
+      html += `
+        <div class="vu-meter" id="vu-${mid}">
+          <div class="vu-label">
+            <span class="vu-name">${escapeHtml(namesFn(id))}</span>
+            <span class="vu-rms" id="vu-rms-${mid}">-∞ dB</span>
+          </div>
+          <div class="vu-bar-container">
+            <div id="vu-fill-${mid}" style="position:absolute;inset:0;background:linear-gradient(to right,#27ae60 0%,#27ae60 80%,#f39c12 80%,#f39c12 90%,#e74c3c 90%,#e74c3c 100%);transition:clip-path 0.05s linear;clip-path:inset(0 100% 0 0)"></div>
+            <div id="vu-peak-${mid}" style="position:absolute;top:0;height:100%;width:2px;background:#fff;box-shadow:0 0 4px rgba(255,255,255,.8);transition:left .1s linear;left:0%"></div>
+          </div>
+        </div>`;
+    }
     html += '</div></div>';
   }
 
   container.innerHTML = html;
 }
 
-function renderVUMeter(label, data, type) {
-  const { rms, peak, clipping } = data;
+const VU_FLOOR_DB = -60;
 
-  // Convertir dBFS en pourcentage pour la barre (0dB = 100%, -60dB = 0%)
-  const rmsPercent = Math.max(0, Math.min(100, ((rms + 60) / 60) * 100));
-  const peakPercent = Math.max(0, Math.min(100, ((peak * 60 - 60 + 60) / 60) * 100));
+function _updateVUMeterValues() {
+  for (const [section, data] of [
+    ['inputs',  audioLevelsData.inputs],
+    ['groups',  audioLevelsData.groups],
+    ['outputs', audioLevelsData.outputs]
+  ]) {
+    for (const [id, { rms, peak, clipping }] of Object.entries(data)) {
+      const mid = `${section}-${id}`;
 
-  // Couleur selon le niveau
-  let barClass = 'vu-bar-green';
-  if (rms > -6) barClass = 'vu-bar-red';
-  else if (rms > -12) barClass = 'vu-bar-yellow';
+      const fillEl = document.getElementById(`vu-fill-${mid}`);
+      const peakEl = document.getElementById(`vu-peak-${mid}`);
+      const rmsEl  = document.getElementById(`vu-rms-${mid}`);
+      const boxEl  = document.getElementById(`vu-${mid}`);
 
-  const clippingClass = clipping ? 'vu-meter-clipping' : '';
+      if (rms < VU_FLOOR_DB) {
+        if (fillEl) fillEl.style.clipPath = 'inset(0 100% 0 0)';
+        if (peakEl) peakEl.style.left     = '0%';
+        if (rmsEl)  rmsEl.textContent     = '-∞ dB';
+        if (boxEl)  boxEl.classList.remove('vu-meter-clipping');
+        continue;
+      }
 
-  return `
-    <div class="vu-meter ${clippingClass}">
-      <div class="vu-label">${escapeHtml(label)}</div>
-      <div class="vu-bar-container">
-        <div class="vu-bar ${barClass}" style="width: ${rmsPercent}%"></div>
-        <div class="vu-peak" style="left: ${peakPercent}%"></div>
-      </div>
-      <div class="vu-values">
-        <span class="vu-rms">${rms.toFixed(1)} dB</span>
-        ${clipping ? '<span class="vu-clip">CLIP!</span>' : ''}
-      </div>
-    </div>
-  `;
+      const rmsPercent  = Math.min(100, ((rms - VU_FLOOR_DB) / -VU_FLOOR_DB) * 100);
+      const peakDb      = peak <= 0 ? -120 : 20 * Math.log10(peak);
+      const peakPercent = Math.max(0, Math.min(100, ((peakDb - VU_FLOOR_DB) / -VU_FLOOR_DB) * 100));
+
+      if (fillEl) fillEl.style.clipPath = `inset(0 ${100 - rmsPercent}% 0 0)`;
+      if (peakEl) peakEl.style.left     = `calc(${peakPercent}% - 1px)`;
+      if (rmsEl)  rmsEl.innerHTML       = clipping ? `${rms.toFixed(1)} dB <span class="vu-clip">CLIP</span>` : `${rms.toFixed(1)} dB`;
+      if (boxEl)  boxEl.classList.toggle('vu-meter-clipping', clipping);
+    }
+  }
 }
 
 function formatTime(isoString) {

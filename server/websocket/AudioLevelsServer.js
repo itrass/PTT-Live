@@ -56,8 +56,9 @@ export class AudioLevelsServer extends EventEmitter {
 
     this.options = {
       port: options.port || 3001,
-      server: options.server || null, // Serveur HTTP existant
-      updateRateMs: options.updateRateMs || 50, // 20 fois/sec
+      server: options.server || null,
+      updateRateMs: options.updateRateMs || 50,
+      channelNames: options.channelNames || { inputs: {}, outputs: {} },
       ...options
     };
 
@@ -147,10 +148,11 @@ export class AudioLevelsServer extends EventEmitter {
     this.clients.add(ws);
     this.stats.connectedClients = this.clients.size;
 
-    // Envoi des données actuelles immédiatement
+    // Envoi des données actuelles immédiatement (avec noms des canaux)
     this._sendToClient(ws, {
       type: 'initial',
-      data: this.levels
+      data: this.levels,
+      channelNames: this.options.channelNames
     });
 
     ws.on('message', (message) => {

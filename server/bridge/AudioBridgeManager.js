@@ -131,7 +131,8 @@ class AudioBridgeManager extends EventEmitter {
         maxInputChannels: 32,
         maxOutputChannels: 32,
         inputDeviceId,
-        outputDeviceId
+        outputDeviceId,
+        audioLevelsServer: options.audioLevelsServer || null
       });
 
       // Démarrer le bridge
